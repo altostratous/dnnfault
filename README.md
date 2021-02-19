@@ -26,7 +26,7 @@ e.g.
 
 # High Level Documentation
 
-This code is done using abstract factory pattern. Each Experiment has some hooks to create models, 
+This code is done using template method pattern. Each Experiment has some hooks to create models, 
 fault injection configurations, etc. To add another experiment you have to extend `ExperimentBase` and implement
 the desired behaviour for it. You can add a directory to the root and register it in settings.py to add a new series of 
 experiments.

@@ -2,6 +2,7 @@ import logging
 import os
 import pickle
 from abc import abstractmethod
+from matplotlib import pyplot as plt
 
 import tfi
 from tensorflow.python.keras import Model
@@ -13,12 +14,17 @@ class ExperimentBase:
 
     epochs = 300
     variants = ('none', )
+    actions = (
+        'run',
+        'plot',
+    )
     default_config = {
         'Artifact': 'convs',
         'Type': 'mutate',
         'Amount': 1,
         'Bit': '23-30',
     }
+    plots = {}
 
     def __init__(self, args) -> None:
         super().__init__()
@@ -42,6 +48,7 @@ class ExperimentBase:
 
     def run(self):
         dataset = self.get_dataset()
+        x, y_true = next(iter(dataset))
         for epoch in range(self.epochs):
             logger.info('Started epoch {}'.format(epoch))
             for config_patch in self.get_configs():
@@ -54,7 +61,7 @@ class ExperimentBase:
                     model = getattr(self, 'get_variant_{}'.format(variant_key))(faulty_model)
                     logger.info('Evaluating ...')
                     self.compile_model(model)
-                    evaluation_result_chunk = self.evaluate(model, dataset)
+                    evaluation_result_chunk = self.evaluate(model, x, y_true)
                     logger.info('Saving evaluation ...')
                     self.save_evaluation_chunk(epoch, config, variant_key, evaluation_result_chunk)
 
@@ -82,7 +89,7 @@ class ExperimentBase:
         return self.copy_model(model)
 
     @abstractmethod
-    def evaluate(self, model, dataset):
+    def evaluate(self, model, x, y_true):
         pass
 
     def get_default_config(self):
@@ -111,6 +118,10 @@ class ExperimentBase:
         with open(log_file_name, mode='wb') as f:
             pickle.dump(self.evaluations, f)
 
+    def load_evaluations(self):
+        with open(self.args.data_file_name, mode='rb') as f:
+            self.evaluations = pickle.load(f)
+
     @abstractmethod
     def get_dataset(self):
         pass
@@ -118,3 +129,20 @@ class ExperimentBase:
     @abstractmethod
     def compile_model(self, model):
         pass
+
+    def plot(self):
+        self.load_evaluations()
+        plot_key = self.args.plot_key
+        title, x_title, y_title = self.plots[plot_key]
+        x, y = getattr(self, plot_key)()
+        self.draw_plot(x, y, title, x_title, y_title)
+
+    def draw_plot(self, x, y, title, x_title, y_title):
+        for y_, variant in zip(y, self.variants):
+            y_value, error = y_
+            plt.errorbar(x, y_value, error, label=variant, elinewidth=0.5, capsize=5)
+        plt.legend()
+        plt.title(title)
+        plt.xlabel(x_title)
+        plt.ylabel(y_title)
+        plt.show()

@@ -1,1 +1,1 @@
-from .clippervsranger import ClipperVSRangerV2
+from .clippervsranger import ClipperVSRangerV3

@@ -20,8 +20,13 @@ experiments = ExperimentBase.find_experiments(APPS)
 experiments_map = {experiment.__name__: experiment for experiment in experiments}
 parser.add_argument('experiment', type=str,
                     choices=experiments_map.keys())
+parser.add_argument('--action', default='run', type=str)
+parser.add_argument('--data_file_name', default='run', type=str)
+parser.add_argument('--plot_key', type=str)
 
 args = parser.parse_args()
+experiment = experiments_map[args.experiment](args)
+args = parser.parse_args()
 
-experiments_map[args.experiment](args).run()
+getattr(experiment, args.action)()
 

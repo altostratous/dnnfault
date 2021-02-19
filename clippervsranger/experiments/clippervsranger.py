@@ -1,6 +1,7 @@
 import json
 import pickle
 import random
+from collections import defaultdict
 
 import numpy as np
 from tensorflow.python.keras import Model
@@ -15,7 +16,11 @@ from base.utils import insert_layer_nonseq
 from clippervsranger.layers import RangerLayer, ClipperLayer
 
 
-class ClipperVSRangerV2(ExperimentBase):
+class ClipperVSRangerV3(ExperimentBase):
+
+    plots = {
+        'sdc': ('SDC rate', 'bit-flips', 'sdc rate')
+    }
 
     with open('clippervsranger/resources/resnet50bounds.pkl', mode='rb') as f:
         bounds = pickle.load(f)
@@ -50,8 +55,7 @@ class ClipperVSRangerV2(ExperimentBase):
                 conf.update({'Artifact': layer})
                 yield conf
 
-    def evaluate(self, model, dataset):
-        x, y_true = next(iter(dataset))
+    def evaluate(self, model, x, y_true):
         y_pred = model.predict(x, batch_size=64)
         return {
             'acc': top_k_categorical_accuracy(y_true, y_pred, k=1),
@@ -108,3 +112,33 @@ class ClipperVSRangerV2(ExperimentBase):
 
     def compile_model(self, model):
         pass
+
+    def sdc(self):
+        x = [1, 10, 100]
+        y = []
+        accumulation = {
+            1: defaultdict(list),
+            10: defaultdict(list),
+            100: defaultdict(list),
+        }
+        for evaluation in self.evaluations:
+            accumulation[evaluation['config']['Amount']][evaluation['variant_key']].append(evaluation)
+
+        for variant in self.variants:
+            y_ = []
+            for amount in accumulation:
+                base_correctly_classified = sum(np.sum(np.equal(
+                    e['evaluation']['y_pred'].T[-1:][0],
+                    e['evaluation']['y_true']
+                )) for e in accumulation[amount]['no_fault'])
+                changed_to_misclassified = sum(
+                    np.sum(np.logical_and(
+                        np.equal(accumulation[amount]['no_fault'][i]['evaluation']['y_pred'].T[-1:][0],
+                                 accumulation[amount]['no_fault'][i]['evaluation']['y_true']),
+                        np.not_equal(e['evaluation']['y_pred'].T[-1:][0],
+                                     e['evaluation']['y_true'])
+                    ))
+                    for i, e in enumerate(accumulation[amount][variant]))
+                y_.append(changed_to_misclassified / base_correctly_classified)
+            y.append((y_, [0 for _ in y_]))
+        return x, y
