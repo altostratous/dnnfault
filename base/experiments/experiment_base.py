@@ -30,6 +30,7 @@ class ExperimentBase:
         super().__init__()
         self.args = args
         self.evaluations = []
+        self.try_recover_evaluations()
 
     @staticmethod
     def find_experiments(apps):
@@ -49,14 +50,23 @@ class ExperimentBase:
     def run(self):
         dataset = self.get_dataset()
         x, y_true = next(iter(dataset))
+        counter = 0
         for epoch in range(self.epochs):
             logger.info('Started epoch {}'.format(epoch))
             for config_patch in self.get_configs():
+                if len(self.evaluations) >= counter + len(self.variants):
+                    counter += len(self.variants)
+                    logger.info('Skipping already done evaluation {} ...'.format(counter))
+                    continue
                 config = self.get_default_config()
                 config.update(config_patch)
                 logger.info('Injecting fault with config {}'.format(config))
                 faulty_model = self.get_faulty_model(config)
                 for variant_key in self.get_variants():
+                    if len(self.evaluations) > counter:
+                        logger.info('Skipping already done variant {} ...'.format(variant_key))
+                        counter += 1
+                        continue
                     logger.info('Creating variant {}'.format(variant_key))
                     model = getattr(self, 'get_variant_{}'.format(variant_key))(faulty_model)
                     logger.info('Evaluating ...')
@@ -64,6 +74,7 @@ class ExperimentBase:
                     evaluation_result_chunk = self.evaluate(model, x, y_true)
                     logger.info('Saving evaluation ...')
                     self.save_evaluation_chunk(epoch, config, variant_key, evaluation_result_chunk)
+                    counter += 1
 
     def copy_model(self, faulty_model):
         model = self.get_raw_model()
@@ -110,7 +121,10 @@ class ExperimentBase:
         return log_object
 
     def get_log_file_name(self, epoch, config, variant_key):
-        return 'tmp/' + self.__class__.__name__ + str(epoch) + '.pkl'
+        return self.get_log_file_name_prefix() + str(epoch) + '.pkl'
+
+    def get_log_file_name_prefix(self):
+        return 'tmp/' + self.__class__.__name__
 
     def save_log_object(self, log_object, log_file_name):
         self.evaluations.append(log_object)
@@ -146,3 +160,24 @@ class ExperimentBase:
         plt.xlabel(x_title)
         plt.ylabel(y_title)
         plt.show()
+
+    def try_recover_evaluations(self):
+        log_file_name_prefix = self.get_log_file_name_prefix()
+        log_directory = os.path.dirname(log_file_name_prefix)
+        log_files = [os.path.join(log_directory, n) for n in os.listdir(log_directory)
+                     if os.path.join(log_directory, n).startswith(log_file_name_prefix)]
+        most_recent_log_file_name = self.get_most_recent_log_file_name(log_files)
+        with open(most_recent_log_file_name, mode='rb') as f:
+            self.evaluations = pickle.load(f)
+
+    def get_most_recent_log_file_name(self, log_files):
+        maximum = None
+        maximum_index = None
+        for i, log_file in enumerate(log_files):
+            epoch = int(log_file[len(self.get_log_file_name_prefix()):].split('.')[0])
+            if maximum is None or epoch > maximum:
+                maximum = epoch
+                maximum_index = i
+        if maximum_index is None:
+            return None
+        return log_files[maximum_index]
