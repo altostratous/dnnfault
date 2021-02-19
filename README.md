@@ -16,7 +16,7 @@ pip install -r requirements.txt
 # Usage
 
 ```bash
-(venv) python manage.py [experiment name]
+(venv) python manage.py [experiment class name]
 ```
 
 e.g.
@@ -24,10 +24,18 @@ e.g.
 (venv) python manage.py ClipperVSRanger
 ```
 
-# Overall Documentation
+# High Level Documentation
 
 This code is done using abstract factory pattern. Each Experiment has some hooks to create models, 
 fault injection configurations, etc. To add another experiment you have to extend `ExperimentBase` and implement
-the desired behaviour for it. 
+the desired behaviour for it. You can add a directory to the root and register it in settings.py to add a new series of 
+experiments.
 
-A good example of implementing this class can be found as `ClipperVSRanger` experiment.
+A good example of implementing this class can be found as `ClipperVSRanger` experiment. You have to configure its
+dataset manually by changing the `get_dataset` method. 
+
+# Results
+
+The default implementation for ExperimentBase logs the results in pickle format containing all samples classifications.
+
+You can customize this behaviour by overriding the logging methods in your experiment.
