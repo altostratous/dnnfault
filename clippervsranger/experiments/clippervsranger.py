@@ -1,14 +1,15 @@
 import json
 import pickle
-
+import numpy as np
 from tensorflow.python.keras import Model
 from tensorflow.python.keras.applications.imagenet_utils import CLASS_INDEX_PATH
 from tensorflow.python.keras.applications.resnet import ResNet50
-from tensorflow.python.keras.losses import CategoricalCrossentropy
-from tensorflow.python.keras.metrics import TopKCategoricalAccuracy
+from tensorflow.python.keras.losses import CategoricalCrossentropy, SparseCategoricalCrossentropy
+from tensorflow.python.keras.metrics import TopKCategoricalAccuracy, top_k_categorical_accuracy
 from tensorflow.python.keras.preprocessing.image_dataset import image_dataset_from_directory
 from tensorflow.python.keras.utils import data_utils
 
+import tensorflow as tf
 from base.experiments import ExperimentBase
 from base.utils import insert_layer_nonseq
 from clippervsranger.layers import RangerLayer, ClipperLayer
@@ -44,7 +45,13 @@ class ClipperVSRanger(ExperimentBase):
                     yield conf
 
     def evaluate(self, model, dataset):
-        return model.evaluate(*next(iter(dataset)), batch_size=64)
+        x, y_true = next(iter(dataset))
+        y_pred = model.predict(x, batch_size=64)
+        return {
+            'acc': top_k_categorical_accuracy(y_true, y_pred, k=1),
+            'y_true': np.argmax(y_true, axis=1),
+            'y_pred': np.argsort(y_pred, axis=1).T[-5:].T
+        }
 
     def get_variant_ranger(self, faulty_model):
         model = self.copy_model(faulty_model)
@@ -94,10 +101,4 @@ class ClipperVSRanger(ExperimentBase):
         return dataset
 
     def compile_model(self, model):
-        loss = CategoricalCrossentropy()
-        model.compile(
-            loss=loss,
-            metrics=[TopKCategoricalAccuracy(k=1)],
-        )
-
-
+        pass

@@ -1,1 +1,2 @@
 -e git+https://github.com/altostratous/TF-Injector.git@master#egg=TF-Injector
+tensorflow~=2.4.1
