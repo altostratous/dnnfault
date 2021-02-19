@@ -1,21 +1,21 @@
 import json
 import pickle
+import random
+
 import numpy as np
 from tensorflow.python.keras import Model
 from tensorflow.python.keras.applications.imagenet_utils import CLASS_INDEX_PATH
 from tensorflow.python.keras.applications.resnet import ResNet50
-from tensorflow.python.keras.losses import CategoricalCrossentropy, SparseCategoricalCrossentropy
-from tensorflow.python.keras.metrics import TopKCategoricalAccuracy, top_k_categorical_accuracy
+from tensorflow.python.keras.metrics import top_k_categorical_accuracy
 from tensorflow.python.keras.preprocessing.image_dataset import image_dataset_from_directory
 from tensorflow.python.keras.utils import data_utils
 
-import tensorflow as tf
 from base.experiments import ExperimentBase
 from base.utils import insert_layer_nonseq
 from clippervsranger.layers import RangerLayer, ClipperLayer
 
 
-class ClipperVSRanger(ExperimentBase):
+class ClipperVSRangerV2(ExperimentBase):
 
     with open('clippervsranger/resources/resnet50bounds.pkl', mode='rb') as f:
         bounds = pickle.load(f)
@@ -34,15 +34,21 @@ class ClipperVSRanger(ExperimentBase):
         return ResNet50(weights='imagenet')
 
     def get_configs(self):
-        for layer, variable in enumerate(self.get_model().trainable_variables):
-            if 'conv' in variable.name and 'kernel' in variable.name:
-                for conf in [
-                    {'Amount': 10},
-                    {'Amount': 1},
-                    {'Amount': 100},
-                ]:
-                    conf.update({'Artifact': layer})
-                    yield conf
+        target_variables = [
+            (layer, variable)
+            for layer, variable in enumerate(self.get_model().trainable_variables)
+            if 'conv' in variable.name and 'kernel' in variable.name
+        ]
+        random.seed(0)
+        random.shuffle(target_variables)
+        for layer, variable in target_variables:
+            for conf in [
+                {'Amount': 10},
+                {'Amount': 1},
+                {'Amount': 100},
+            ]:
+                conf.update({'Artifact': layer})
+                yield conf
 
     def evaluate(self, model, dataset):
         x, y_true = next(iter(dataset))
