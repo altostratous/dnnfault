@@ -83,7 +83,7 @@ class ExperimentBase:
                     self.compile_model(model)
                     evaluation_result_chunk = self.evaluate(model, x, y_true)
                     logger.info('Saving evaluation ...')
-                    self.save_evaluation_chunk(epoch, config, variant_key, evaluation_result_chunk)
+                    self.save_evaluation_chunk(epoch, config, config_id, variant_key, evaluation_result_chunk)
                     gc.collect()
                     logger.debug(
                         'Resident models {}'.format(', '.join(
@@ -123,9 +123,9 @@ class ExperimentBase:
     def get_default_config(self):
         return self.default_config.copy()
 
-    def save_evaluation_chunk(self, epoch, config, variant_key, evaluation_result_chunk):
+    def save_evaluation_chunk(self, epoch, config, config_id, variant_key, evaluation_result_chunk):
         log_object = self.get_log_file_object(config, epoch, evaluation_result_chunk, variant_key)
-        log_file_name = self.get_log_file_name(epoch, config, variant_key)
+        log_file_name = self.get_log_file_name(epoch, config_id, variant_key)
         self.save_log_object(log_object, log_file_name)
 
     def get_log_file_object(self, config, epoch, evaluation_result_chunk, variant_key):
@@ -137,8 +137,8 @@ class ExperimentBase:
         }
         return log_object
 
-    def get_log_file_name(self, epoch, config, variant_key):
-        return self.get_log_file_name_prefix() + str(epoch) + '.pkl'
+    def get_log_file_name(self, epoch, config_id, variant_key):
+        return self.get_log_file_name_prefix() + str(epoch * 10 + config_id % 2) + '.pkl'
 
     def get_log_file_name_prefix(self):
         return 'tmp/' + self.__class__.__name__
