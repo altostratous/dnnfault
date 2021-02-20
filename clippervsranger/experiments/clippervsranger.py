@@ -62,7 +62,7 @@ class ClipperVSRangerV3(ExperimentBase):
                 yield conf
 
     def evaluate(self, model, x, y_true):
-        y_pred = model.predict(x, batch_size=8)
+        y_pred = model.predict(x, batch_size=64)
         return {
             'acc': top_k_categorical_accuracy(y_true, y_pred, k=1),
             'y_true': np.argmax(y_true, axis=1),
@@ -109,8 +109,8 @@ class ClipperVSRangerV3(ExperimentBase):
             label_mode='categorical',
             class_names=class_names,
             image_size=(224, 224),
-            validation_split=0.5,
-            subset='training',
+            validation_split=self.args.validation_split,
+            subset=self.args.subset,
             seed=0,
             batch_size=2000
         )

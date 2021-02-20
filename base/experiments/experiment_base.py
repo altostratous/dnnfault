@@ -7,6 +7,7 @@ from matplotlib import pyplot as plt
 
 import tfi
 from tensorflow.python.keras import Model
+from tensorflow.python.keras import backend as K
 
 logger = logging.getLogger(__file__)
 
@@ -90,6 +91,7 @@ class ExperimentBase:
                         ))
                     )
                     counter += 1
+                K.clear_session()
 
     def copy_model(self, faulty_model, name=None):
         model = self.get_raw_model(name=name)
