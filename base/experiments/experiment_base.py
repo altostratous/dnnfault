@@ -83,6 +83,7 @@ class ExperimentBase:
                     evaluation_result_chunk = self.evaluate(model, x, y_true)
                     logger.info('Saving evaluation ...')
                     self.save_evaluation_chunk(epoch, config, variant_key, evaluation_result_chunk)
+                    gc.collect()
                     print([o.name for o in gc.get_objects() if isinstance(o, Model)])
                     counter += 1
 
