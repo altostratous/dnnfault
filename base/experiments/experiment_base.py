@@ -164,7 +164,7 @@ class ExperimentBase:
     def try_recover_evaluations(self):
         log_file_name_prefix = self.get_log_file_name_prefix()
         log_directory = os.path.dirname(log_file_name_prefix)
-        os.makedirs(os.path.dirname(log_directory), exist_ok=True)
+        os.makedirs(log_directory, exist_ok=True)
         log_files = [os.path.join(log_directory, n) for n in os.listdir(log_directory)
                      if os.path.join(log_directory, n).startswith(log_file_name_prefix)]
         most_recent_log_file_name = self.get_most_recent_log_file_name(log_files)
