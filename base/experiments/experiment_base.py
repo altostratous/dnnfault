@@ -1,3 +1,4 @@
+import gc
 import logging
 import os
 import pickle
@@ -44,7 +45,7 @@ class ExperimentBase:
         return experiments
 
     @abstractmethod
-    def get_model(self):
+    def get_model(self, name=None):
         pass
 
     def run(self):
@@ -53,7 +54,7 @@ class ExperimentBase:
         counter = 0
         for epoch in range(self.epochs):
             logger.info('Started epoch {}'.format(epoch))
-            for config_patch in self.get_configs():
+            for config_id, config_patch in enumerate(self.get_configs()):
                 if len(self.evaluations) >= counter + len(self.variants):
                     counter += len(self.variants)
                     logger.info('Skipping already done evaluation {} ...'.format(counter))
@@ -61,23 +62,32 @@ class ExperimentBase:
                 config = self.get_default_config()
                 config.update(config_patch)
                 logger.info('Injecting fault with config {}'.format(config))
-                faulty_model = self.get_faulty_model(config)
+                faulty_model = self.get_faulty_model(config, name='faulty_{}_{}'.format(
+                    epoch,
+                    config_id
+                ))
                 for variant_key in self.get_variants():
                     if len(self.evaluations) > counter:
                         logger.info('Skipping already done variant {} ...'.format(variant_key))
                         counter += 1
                         continue
                     logger.info('Creating variant {}'.format(variant_key))
-                    model = getattr(self, 'get_variant_{}'.format(variant_key))(faulty_model)
+                    model = getattr(self, 'get_variant_{}'.format(variant_key))(faulty_model,
+                                                                                name='variant_{}_{}_{}'.format(
+                                                                                    epoch,
+                                                                                    config_id,
+                                                                                    variant_key
+                                                                                ))
                     logger.info('Evaluating ...')
                     self.compile_model(model)
                     evaluation_result_chunk = self.evaluate(model, x, y_true)
                     logger.info('Saving evaluation ...')
                     self.save_evaluation_chunk(epoch, config, variant_key, evaluation_result_chunk)
+                    print([o.name for o in gc.get_objects() if isinstance(o, Model)])
                     counter += 1
 
-    def copy_model(self, faulty_model):
-        model = self.get_raw_model()
+    def copy_model(self, faulty_model, name=None):
+        model = self.get_raw_model(name=name)
         model.set_weights(faulty_model.get_weights())
         return model
 
@@ -85,19 +95,19 @@ class ExperimentBase:
     def get_configs(self):
         pass
 
-    def get_faulty_model(self, config) -> Model:
-        model = self.get_model()
+    def get_faulty_model(self, config, name=None) -> Model:
+        model = self.get_model(name=name)
         tfi.inject(fiConf=config, model=model)
         return model
 
-    def get_raw_model(self) -> Model:
-        return self.get_model()
+    def get_raw_model(self, name=None) -> Model:
+        return self.get_model(name=name)
 
     def get_variants(self):
         return self.variants
 
-    def get_variant_none(self, model):
-        return self.copy_model(model)
+    def get_variant_none(self, model, name=None):
+        return self.copy_model(model, name=name)
 
     @abstractmethod
     def evaluate(self, model, x, y_true):

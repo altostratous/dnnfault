@@ -32,11 +32,17 @@ class ClipperVSRangerV3(ExperimentBase):
         'no_fault',
     )
 
-    def get_raw_model(self) -> Model:
-        return ResNet50()
+    def get_raw_model(self, name=None) -> Model:
+        result = ResNet50()
+        if name is not None:
+            result._name = name
+        return result
 
-    def get_model(self):
-        return ResNet50(weights='imagenet')
+    def get_model(self, name=None):
+        result = ResNet50(weights='imagenet')
+        if name is not None:
+            result._name = name
+        return result
 
     def get_configs(self):
         target_variables = [
@@ -63,23 +69,23 @@ class ClipperVSRangerV3(ExperimentBase):
             'y_pred': np.argsort(y_pred, axis=1).T[-5:].T
         }
 
-    def get_variant_ranger(self, faulty_model):
-        model = self.copy_model(faulty_model)
+    def get_variant_ranger(self, faulty_model, name=None):
+        model = self.copy_model(faulty_model, name=name + '_base_copy')
 
         def ranger_layer_factory(insert_layer_name):
             return RangerLayer(name=insert_layer_name, bounds=self.bounds)
-        model = insert_layer_nonseq(model, '.*relu.*', ranger_layer_factory, 'dummy')
+        model = insert_layer_nonseq(model, '.*relu.*', ranger_layer_factory, 'dummy', model_name=name)
         return model
 
-    def get_variant_no_fault(self, faulty_model):
-        return self.get_model()
+    def get_variant_no_fault(self, faulty_model, name=None):
+        return self.get_model(name=name)
 
-    def get_variant_clipper(self, faulty_model):
-        model = self.copy_model(faulty_model)
+    def get_variant_clipper(self, faulty_model, name=None):
+        model = self.copy_model(faulty_model, name=name + '_base_copy')
 
         def ranger_layer_factory(insert_layer_name):
             return ClipperLayer(name=insert_layer_name, bounds=self.bounds)
-        model = insert_layer_nonseq(model, '.*relu.*', ranger_layer_factory, 'dummy')
+        model = insert_layer_nonseq(model, '.*relu.*', ranger_layer_factory, 'dummy', model_name=name)
         return model
 
     def get_dataset(self):

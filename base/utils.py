@@ -3,7 +3,7 @@ import re
 
 
 def insert_layer_nonseq(model, layer_regex, insert_layer_factory,
-                        insert_layer_name=None, position='after'):
+                        insert_layer_name=None, position='after', model_name=None):
 
     # Auxiliary dictionary to describe the network graph
     network_dict = {'input_layers_of': {}, 'new_output_tensor_of': {}}
@@ -62,4 +62,7 @@ def insert_layer_nonseq(model, layer_regex, insert_layer_factory,
         if layer.name in model.output_names:
             model_outputs.append(x)
 
-    return Model(inputs=model.inputs, outputs=model_outputs)
+    kwargs = {}
+    if model_name is not None:
+        kwargs['name'] = model_name
+    return Model(inputs=model.inputs, outputs=model_outputs, **kwargs)
