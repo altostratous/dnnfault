@@ -84,7 +84,11 @@ class ExperimentBase:
                     logger.info('Saving evaluation ...')
                     self.save_evaluation_chunk(epoch, config, variant_key, evaluation_result_chunk)
                     gc.collect()
-                    print([o.name for o in gc.get_objects() if isinstance(o, Model)])
+                    logger.debug(
+                        'Resident models {}'.format(', '.join(
+                            [o.name for o in gc.get_objects() if isinstance(o, Model)]
+                        ))
+                    )
                     counter += 1
 
     def copy_model(self, faulty_model, name=None):
