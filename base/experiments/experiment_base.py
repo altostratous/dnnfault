@@ -168,6 +168,8 @@ class ExperimentBase:
         log_files = [os.path.join(log_directory, n) for n in os.listdir(log_directory)
                      if os.path.join(log_directory, n).startswith(log_file_name_prefix)]
         most_recent_log_file_name = self.get_most_recent_log_file_name(log_files)
+        if most_recent_log_file_name is None:
+            return
         with open(most_recent_log_file_name, mode='rb') as f:
             self.evaluations = pickle.load(f)
 
