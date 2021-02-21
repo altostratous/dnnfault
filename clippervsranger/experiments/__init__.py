@@ -1,1 +1,3 @@
+from .clippervsranger_base import ClipperVSRangerBase
 from .clippervsranger import ClipperVSRangerV3
+from .vgg16clippervsranger import VGG16ClipperVSRanger

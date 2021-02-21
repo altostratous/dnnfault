@@ -1,24 +1,31 @@
 import pickle
 
 from tensorflow.python.keras import Model
-from tensorflow.python.keras.applications.resnet import ResNet50
+from tensorflow.python.keras.applications.vgg16 import VGG16
 
 from clippervsranger.experiments import ClipperVSRangerBase
 
 
-class ClipperVSRangerV3(ClipperVSRangerBase):
+class VGG16ClipperVSRanger(ClipperVSRangerBase):
 
-    with open('clippervsranger/resources/resnet50bounds.pkl', mode='rb') as f:
+    variants = (
+        'ranger',
+        'clipper',
+        'none',
+        'no_fault',
+    )
+
+    with open('clippervsranger/resources/vgg16bounds.pkl', mode='rb') as f:
         bounds = pickle.load(f)
 
     def get_raw_model(self, name=None) -> Model:
-        result = ResNet50()
+        result = VGG16()
         if name is not None:
             result._name = name
         return result
 
     def get_model(self, name=None):
-        result = ResNet50(weights='imagenet')
+        result = VGG16(weights='imagenet')
         if name is not None:
             result._name = name
         return result
