@@ -141,7 +141,7 @@ class ExperimentBase:
         return self.get_log_file_name_prefix() + str(epoch * 10 + config_id % 2) + '.pkl'
 
     def get_log_file_name_prefix(self):
-        return 'tmp/' + self.__class__.__name__
+        return 'tmp/' + self.args.tag + self.__class__.__name__
 
     def save_log_object(self, log_object, log_file_name):
         self.evaluations.append(log_object)

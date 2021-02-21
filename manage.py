@@ -26,6 +26,7 @@ parser.add_argument('--validation_split', type=float, default=0.5)
 parser.add_argument('--subset', type=str, default='training')
 parser.add_argument('--plot_key', type=str)
 parser.add_argument('--dataset_path', type=str)
+parser.add_argument('--tag', type=str, default='')
 
 args = parser.parse_args()
 experiment = experiments_map[args.experiment](args)
