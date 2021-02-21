@@ -105,7 +105,7 @@ class ClipperVSRangerV3(ExperimentBase):
             class_titles.append(entry[1])
 
         dataset = image_dataset_from_directory(
-            '../ImageNet-Datasets-Downloader/imagenet/imagenet_images',
+            self.args.dataset_path or '../ImageNet-Datasets-Downloader/imagenet/imagenet_images',
             label_mode='categorical',
             class_names=class_names,
             image_size=(224, 224),
