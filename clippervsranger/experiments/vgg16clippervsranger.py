@@ -15,7 +15,10 @@ class VGG16ClipperVSRanger(ClipperVSRangerBase):
         'no_fault',
     )
 
-    with open('clippervsranger/resources/vgg16bounds.pkl', mode='rb') as f:
+    activation_name_pattern = '.*_conv[\d]|.*fc[\d]'
+
+    bounds_file_name = 'clippervsranger/resources/vgg16bounds.pkl'
+    with open(bounds_file_name, mode='rb') as f:
         bounds = pickle.load(f)
 
     def get_raw_model(self, name=None) -> Model:

@@ -1,6 +1,7 @@
 from collections import defaultdict
 from tensorflow.keras.layers import Layer
 import tensorflow as tf
+import numpy as np
 
 
 class ProfileLayer(Layer):
@@ -8,7 +9,8 @@ class ProfileLayer(Layer):
 
     def call(self, inputs, **kwargs):
         if hasattr(inputs, 'numpy'):
-            self.profile[self.name].append(inputs.numpy())
+            matrix = inputs.numpy()
+            self.profile[self.name].append([np.max(matrix), np.min(matrix)])
         return super().call(inputs, **kwargs)
 
 
