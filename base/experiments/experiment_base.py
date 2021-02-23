@@ -56,8 +56,8 @@ class ExperimentBase:
         for epoch in range(self.epochs):
             logger.info('Started epoch {}'.format(epoch))
             for config_id, config_patch in enumerate(self.get_configs()):
-                if len(self.evaluations) >= counter + len(self.variants):
-                    counter += len(self.variants)
+                if len(self.evaluations) >= counter + len(self.get_variants()):
+                    counter += len(self.get_variants())
                     logger.info('Skipping already done evaluation {} ...'.format(counter))
                     continue
                 config = self.get_default_config()
@@ -111,7 +111,10 @@ class ExperimentBase:
         return self.get_model(name=name)
 
     def get_variants(self):
-        return self.variants
+        if self.args.shard:
+            return [v for v in self.variants if v == self.args.shard]
+        else:
+            return self.variants
 
     def get_variant_none(self, model, name=None):
         return self.copy_model(model, name=name)
@@ -140,8 +143,14 @@ class ExperimentBase:
     def get_log_file_name(self, epoch, config_id, variant_key):
         return self.get_log_file_name_prefix() + str(epoch * 10 + config_id % 2) + '.pkl'
 
-    def get_log_file_name_prefix(self):
-        return 'tmp/' + self.args.tag + self.__class__.__name__
+    def get_log_file_name_prefix(self, shard=None):
+        if shard is None:
+            shard = self.args.shard
+        if shard:
+            shard_part = '_' + shard + '_'
+        else:
+            shard_part = ''
+        return 'tmp/' + self.args.tag + shard_part + self.__class__.__name__
 
     def save_log_object(self, log_object, log_file_name):
         self.evaluations.append(log_object)
