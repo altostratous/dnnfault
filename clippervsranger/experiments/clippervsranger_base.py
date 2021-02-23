@@ -94,6 +94,7 @@ class ClipperVSRangerBase(ExperimentBase, metaclass=ABCMeta):
                     e['evaluation']['y_pred'].T[-1:][0],
                     e['evaluation']['y_true']
                 )) for e in accumulation[amount]['no_fault'])
+                target_evaluations = accumulation[amount][variant]
                 changed_to_misclassified = sum(
                     np.sum(np.logical_and(
                         np.equal(accumulation[amount]['no_fault'][i]['evaluation']['y_pred'].T[-1:][0],
@@ -101,9 +102,12 @@ class ClipperVSRangerBase(ExperimentBase, metaclass=ABCMeta):
                         np.not_equal(e['evaluation']['y_pred'].T[-1:][0],
                                      e['evaluation']['y_true'])
                     ))
-                    for i, e in enumerate(accumulation[amount][variant]))
-                y_.append(changed_to_misclassified / base_correctly_classified)
-            y.append((y_, [0 for _ in y_]))
+                    for i, e in enumerate(target_evaluations))
+                p = changed_to_misclassified / base_correctly_classified
+                z = 1.96  # 95%
+                n = len(target_evaluations)
+                y_.append((p, z * np.sqrt(p * (1 - p) / n)))
+            y.append(list(zip(*y_)))
         return x, y
 
     def get_dataset(self):
