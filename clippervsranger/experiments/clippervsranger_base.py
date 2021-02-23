@@ -1,17 +1,20 @@
 import json
+import pickle
 import random
 from abc import ABCMeta
 from collections import defaultdict
 
 import numpy as np
 from tensorflow.python.keras.applications.imagenet_utils import CLASS_INDEX_PATH
-from tensorflow.python.keras.metrics import top_k_categorical_accuracy
+from tensorflow.python.keras.losses import CategoricalCrossentropy
+from tensorflow.python.keras.metrics import top_k_categorical_accuracy, TopKCategoricalAccuracy
 from tensorflow.python.keras.preprocessing.image_dataset import image_dataset_from_directory
 from tensorflow.python.keras.utils import data_utils
 
 from base.experiments import ExperimentBase
 from base.utils import insert_layer_nonseq
-from clippervsranger.layers import RangerLayer, ClipperLayer
+from clippervsranger.layers import RangerLayer, ClipperLayer, ProfileLayer
+from matplotlib import pyplot as plt
 
 
 class ClipperVSRangerBase(ExperimentBase, metaclass=ABCMeta):
@@ -27,7 +30,11 @@ class ClipperVSRangerBase(ExperimentBase, metaclass=ABCMeta):
         'no_fault',
     )
 
+    bounds_file_name = None
+    pytorch_bounds_file_name = None
     bounds = None
+
+    activation_name_pattern = '.*relu.*|conv[\d]_block[\d]_out'
 
     def get_configs(self):
         target_variables = [
@@ -59,7 +66,7 @@ class ClipperVSRangerBase(ExperimentBase, metaclass=ABCMeta):
 
         def ranger_layer_factory(insert_layer_name):
             return RangerLayer(name=insert_layer_name, bounds=self.bounds)
-        model = insert_layer_nonseq(model, '.*relu.*', ranger_layer_factory, 'dummy', model_name=name)
+        model = insert_layer_nonseq(model, self.activation_name_pattern, ranger_layer_factory, 'dummy', model_name=name)
         return model
 
     def get_variant_no_fault(self, faulty_model, name=None):
@@ -70,11 +77,23 @@ class ClipperVSRangerBase(ExperimentBase, metaclass=ABCMeta):
 
         def ranger_layer_factory(insert_layer_name):
             return ClipperLayer(name=insert_layer_name, bounds=self.bounds)
-        model = insert_layer_nonseq(model, '.*relu.*', ranger_layer_factory, 'dummy', model_name=name)
+        model = insert_layer_nonseq(model, self.activation_name_pattern, ranger_layer_factory, 'dummy', model_name=name)
+        return model
+
+    def get_variant_profiler(self, faulty_model, name=None):
+        model = self.copy_model(faulty_model, name=(name or '') + '_base_copy')
+
+        def ranger_layer_factory(insert_layer_name):
+            return ProfileLayer(name=insert_layer_name)
+        model = insert_layer_nonseq(model, self.activation_name_pattern, ranger_layer_factory, 'dummy', model_name=name)
         return model
 
     def compile_model(self, model):
-        pass
+        loss = CategoricalCrossentropy()
+        model.compile(
+            loss=loss,
+            metrics=[TopKCategoricalAccuracy(k=1)],
+        )
 
     def sdc(self):
         x = [1, 10, 100]
@@ -137,3 +156,31 @@ class ClipperVSRangerBase(ExperimentBase, metaclass=ABCMeta):
             batch_size=2000
         )
         return dataset
+
+    def profile(self):
+        model = self.get_variant_profiler(self.get_model())
+        self.compile_model(model)
+        model.run_eagerly = True
+        for x, y in self.get_dataset():
+            model.evaluate(x, y)
+        bounds = {n: {'upper': max(map(np.max, p)), 'lower': min(map(np.min, p))} for n, p in
+                  ProfileLayer.profile.items()}
+        with open(self.bounds_file_name, mode='wb') as f:
+            pickle.dump(bounds, f)
+        print(bounds)
+
+    def tfvspytorch(self):
+        x, y = [], []
+        pytorch_bounds = pickle.load(open(self.pytorch_bounds_file_name, mode='rb'))
+        bounds = pickle.load(open(self.bounds_file_name, mode='rb'))
+        for k in sorted(bounds.keys(), key=lambda j: len(j)):
+            x.append(pytorch_bounds[k]['upper'])
+            y.append(bounds[k]['upper'])
+        plt.scatter(x, y)
+        z = np.polyfit(x, y, 1)
+        p = np.poly1d(z)
+        plt.plot(x, p(x), "r")
+        plt.xlabel('pytorch bounds')
+        plt.ylabel('TensorFlow bounds')
+        plt.title('Bounds Correlation across libraries ({})'.format(np.corrcoef(x, y)[0][1]))
+        plt.show()

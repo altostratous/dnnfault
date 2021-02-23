@@ -6,9 +6,11 @@ from tensorflow.python.keras.applications.resnet import ResNet50
 from clippervsranger.experiments import ClipperVSRangerBase
 
 
-class ClipperVSRangerV3(ClipperVSRangerBase):
+class ClipperVSRangerV4(ClipperVSRangerBase):
 
-    with open('clippervsranger/resources/resnet50bounds.pkl', mode='rb') as f:
+    bounds_file_name = 'clippervsranger/resources/resnet50bounds.pkl'
+    pytorch_bounds_file_name = 'clippervsranger/resources/resnet50bounds_pytorch.pkl'
+    with open(bounds_file_name, mode='rb') as f:
         bounds = pickle.load(f)
 
     def get_raw_model(self, name=None) -> Model:
