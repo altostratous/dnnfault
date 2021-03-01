@@ -3,6 +3,10 @@ import logging
 import os
 import pickle
 from abc import abstractmethod
+
+from google.auth.transport import Request
+from google_auth_oauthlib.flow import InstalledAppFlow
+from googleapiclient.discovery import build
 from matplotlib import pyplot as plt
 
 import tfi
@@ -14,6 +18,7 @@ logger = logging.getLogger(__file__)
 
 class ExperimentBase:
 
+    sheet_id = '15a4LgoXUnpamQ4ufUzZp-75V4vb7AXklGKRarxKoG0w'
     epochs = 300
     variants = ('none', )
     actions = (
@@ -27,6 +32,16 @@ class ExperimentBase:
         'Bit': '23-30',
     }
     plots = {}
+
+    table_scheme = {
+        'epoch': ('epoch', ),
+        'amount': ('config', 'Amount'),
+        'layer': ('config', 'Artifact'),
+        'variant': ('variant_key', ),
+    }
+
+    def get_plots(self):
+        return self.plots
 
     def __init__(self, args) -> None:
         super().__init__()
@@ -159,8 +174,11 @@ class ExperimentBase:
             pickle.dump(self.evaluations, f)
 
     def load_evaluations(self):
-        with open(self.args.data_file_name, mode='rb') as f:
-            self.evaluations = pickle.load(f)
+        if self.args.data_file_name:
+            with open(self.args.data_file_name, mode='rb') as f:
+                self.evaluations = pickle.load(f)
+        else:
+            self.try_recover_evaluations()
 
     @abstractmethod
     def get_dataset(self):
@@ -173,19 +191,24 @@ class ExperimentBase:
     def plot(self):
         self.load_evaluations()
         plot_key = self.args.plot_key
-        title, x_title, y_title = self.plots[plot_key]
+        title, x_title, y_title, pyplot_func = self.get_plots()[plot_key]
         x, y = getattr(self, plot_key)()
-        self.draw_plot(x, y, title, x_title, y_title)
+        self.draw_plot(x, y, title, x_title, y_title, pyplot_func)
 
-    def draw_plot(self, x, y, title, x_title, y_title):
-        for y_, variant in zip(y, self.variants):
+    def draw_plot(self, x, y, title, x_title, y_title, pyplot_func):
+        for y_, variant in zip(y, self.get_variants()):
             y_value, error = y_
-            plt.errorbar(x, y_value, error, label=variant, elinewidth=0.5, capsize=5)
+            getattr(plt, pyplot_func)(x, y_value, yerr=error, label=variant, elinewidth=0.5, capsize=5)
         plt.legend()
         plt.title(title)
         plt.xlabel(x_title)
         plt.ylabel(y_title)
-        plt.show()
+        plt.xticks(rotation='vertical')
+        plt.tight_layout()
+        if self.args.pyplot_out:
+            plt.savefig(self.args.pyplot_out)
+        else:
+            plt.show()
 
     def try_recover_evaluations(self):
         log_file_name_prefix = self.get_log_file_name_prefix()
@@ -196,6 +219,7 @@ class ExperimentBase:
         most_recent_log_file_name = self.get_most_recent_log_file_name(log_files)
         if most_recent_log_file_name is None:
             return
+        logger.info('Recovering evaluations from {}'.format(most_recent_log_file_name))
         with open(most_recent_log_file_name, mode='rb') as f:
             self.evaluations = pickle.load(f)
 
@@ -210,3 +234,79 @@ class ExperimentBase:
         if maximum_index is None:
             return None
         return log_files[maximum_index]
+
+    def export_to_google_sheet(self):
+        """Shows basic usage of the Sheets API.
+        Prints values from a sample spreadsheet.
+        """
+        SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
+        SAMPLE_RANGE_NAME = 'A1:AA1000'
+        creds = None
+        # The file token.pickle stores the user's access and refresh tokens, and is
+        # created automatically when the authorization flow completes for the first
+        # time.
+        if os.path.exists('token.pickle'):
+            with open('token.pickle', 'rb') as token:
+                creds = pickle.load(token)
+        # If there are no (valid) credentials available, let the user log in.
+        if not creds or not creds.valid:
+            if creds and creds.expired and creds.refresh_token:
+                creds.refresh(Request())
+            else:
+                flow = InstalledAppFlow.from_client_secrets_file(
+                    'credentials.json', SCOPES)
+                creds = flow.run_local_server(port=0)
+            # Save the credentials for the next run
+            with open('token.pickle', 'wb') as token:
+                pickle.dump(creds, token)
+
+        service = build('sheets', 'v4', credentials=creds)
+
+        # Call the Sheets API
+        data = self.get_tabular_data()
+        response_date = service.spreadsheets().values().update(
+            spreadsheetId=self.sheet_id,
+            valueInputOption='RAW',
+            range=self.get_sheet_name() + '!' + 'A1:AA{}'.format(len(data)),
+            body=dict(
+                majorDimension='ROWS',
+                values=data)
+        ).execute()
+        logger.info('Sheet successfully Updated')
+        logger.info(response_date)
+
+    def get_tabular_data(self):
+        self.try_recover_evaluations()
+        tabular = [list(self.get_tabular_headers())]
+        first_base_evaluation = self.get_first_base_evaluation()
+        for evaluation in self.evaluations:
+            row = []
+            for cell in self.get_table_scheme().items():
+                row.append(self.get_tabular_value(cell, evaluation, first_base_evaluation))
+            tabular.append(row)
+        return tabular
+
+    def get_sheet_name(self):
+        return self.__class__.__name__
+
+    def get_tabular_headers(self):
+        return self.get_table_scheme().keys()
+
+    def get_table_scheme(self):
+        return self.table_scheme
+
+    def get_tabular_value(self, cell, evaluation, first_base_evaluation):
+        cell_title, scheme = cell
+        if isinstance(scheme, tuple):
+            value = evaluation
+            while scheme:
+                value = value[scheme[0]]
+                scheme = scheme[1:]
+            return value
+        if isinstance(scheme, str):
+            return getattr(self, scheme)(cell_title, evaluation, first_base_evaluation)
+        raise ValueError
+
+    @abstractmethod
+    def get_first_base_evaluation(self):
+        pass

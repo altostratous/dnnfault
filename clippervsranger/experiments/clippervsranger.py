@@ -8,6 +8,8 @@ from clippervsranger.experiments import ClipperVSRangerBase
 
 class ClipperVSRangerV4(ClipperVSRangerBase):
 
+    model_name = 'ResNet50'
+
     bounds_file_name = 'clippervsranger/resources/resnet50bounds.pkl'
     pytorch_bounds_file_name = 'clippervsranger/resources/resnet50bounds_pytorch.pkl'
     with open(bounds_file_name, mode='rb') as f:

@@ -8,6 +8,8 @@ from clippervsranger.experiments import ClipperVSRangerBase
 
 class VGG16ClipperVSRanger(ClipperVSRangerBase):
 
+    model_name = 'VGG16'
+
     variants = (
         'ranger',
         'clipper',
