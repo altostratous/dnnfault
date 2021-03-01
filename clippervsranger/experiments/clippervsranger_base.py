@@ -41,7 +41,7 @@ class ClipperVSRangerBase(ExperimentBase, metaclass=ABCMeta):
     def get_plots(self):
         plots = {
             'sdc': (self.model_name + ' SDC', 'bit-flips', 'sdc', 'errorbar'),
-            'class_sdc': (self.model_name + ' Class-wise SDC', 'class index', 'sdc', 'errorbar'),
+            'class_sdc': (self.model_name + ' Class-wise SDC', 'class index', 'sdc', 'bar'),
             'layer_sdc': (self.model_name + ' Layer-wise SDC', 'layer index', 'sdc', 'errorbar'),
         }
         return plots
@@ -136,72 +136,84 @@ class ClipperVSRangerBase(ExperimentBase, metaclass=ABCMeta):
                 n = len(target_evaluations)
                 y_.append((p, self.z * np.sqrt(p * (1 - p) / n)))
             y.append(list(zip(*y_)))
-        return x, y
+        return x, {'': y}
 
     def layer_sdc(self):
-        y = []
-        m = self.get_model()
-        variable_names = {}
-        for i, t in enumerate(m.trainable_variables):
-            if 'conv' in t.name and 'kernel' in t.name:
-                variable_names[i] = t.name
-        accumulation = defaultdict(lambda: defaultdict(list))
-        for evaluation in self.evaluations:
-            accumulation[evaluation['config']['Artifact']][evaluation['variant_key']].append(evaluation)
-        layer_keys = sorted(accumulation.keys())
-        for variant in self.variants:
-            y_ = []
-            for amount in layer_keys:
-                base_correctly_classified = sum(np.sum(np.equal(
-                    e['evaluation']['y_pred'].T[-1:][0],
-                    e['evaluation']['y_true']
-                )) for e in accumulation[amount]['no_fault'])
-                target_evaluations = accumulation[amount][variant]
-                changed_to_misclassified = sum(
-                    np.sum(np.logical_and(
-                        np.equal(accumulation[amount]['no_fault'][i]['evaluation']['y_pred'].T[-1:][0],
-                                 accumulation[amount]['no_fault'][i]['evaluation']['y_true']),
-                        np.not_equal(e['evaluation']['y_pred'].T[-1:][0],
-                                     e['evaluation']['y_true'])
-                    ))
-                    for i, e in enumerate(target_evaluations))
-                p = changed_to_misclassified / base_correctly_classified
-                n = len(target_evaluations)
-                y_.append((p, self.z * np.sqrt(p * (1 - p) / n)))
-            y.append(list(zip(*y_)))
-        return [k for k in layer_keys], y
+
+        subplots = {}
+        for amount in (1, 10, 100):
+            y = []
+            m = self.get_model()
+            variable_names = {}
+            for i, t in enumerate(m.trainable_variables):
+                if 'conv' in t.name and 'kernel' in t.name:
+                    variable_names[i] = t.name
+            accumulation = defaultdict(lambda: defaultdict(list))
+            for evaluation in self.evaluations:
+                if evaluation['config']['Amount'] != amount:
+                    continue
+                accumulation[evaluation['config']['Artifact']][evaluation['variant_key']].append(evaluation)
+            layer_keys = sorted(accumulation.keys())
+            for variant in self.variants:
+                y_ = []
+                for artifact in layer_keys:
+                    base_correctly_classified = sum(np.sum(np.equal(
+                        e['evaluation']['y_pred'].T[-1:][0],
+                        e['evaluation']['y_true']
+                    )) for e in accumulation[artifact]['no_fault'])
+                    target_evaluations = accumulation[artifact][variant]
+                    changed_to_misclassified = sum(
+                        np.sum(np.logical_and(
+                            np.equal(accumulation[artifact]['no_fault'][i]['evaluation']['y_pred'].T[-1:][0],
+                                     accumulation[artifact]['no_fault'][i]['evaluation']['y_true']),
+                            np.not_equal(e['evaluation']['y_pred'].T[-1:][0],
+                                         e['evaluation']['y_true'])
+                        ))
+                        for i, e in enumerate(target_evaluations))
+                    p = changed_to_misclassified / base_correctly_classified
+                    n = len(target_evaluations)
+                    y_.append((p, self.z * np.sqrt(p * (1 - p) / n)))
+                y.append(list(zip(*y_)))
+            subplots['Amount={}'.format(amount)] = y
+        return [k for k in layer_keys], subplots
 
     def class_sdc(self):
-        y = []
-        classes = set()
-        accumulation = defaultdict(lambda: defaultdict(list))
-        for evaluation in self.evaluations:
-            accumulation[(evaluation['epoch'], evaluation['config']['Artifact'])][evaluation['variant_key']].append(evaluation)
-        class_sdc = defaultdict(lambda: defaultdict(int))
-        class_base_corrects = defaultdict(lambda: defaultdict(int))
-        for experiment in accumulation.values():
-            base_line = experiment['no_fault'][0]['evaluation']['y_pred']
-            oracle = experiment['no_fault'][0]['evaluation']['y_true']
-            for variant, evaluations in experiment.items():
-                for evaluation in evaluations:
-                    for i, sample_pred in enumerate(base_line):
-                        sample_class = oracle[i]
-                        classes.add(sample_class)
-                        if base_line[i][-1] != sample_class:
-                            continue
-                        class_base_corrects[variant][sample_class] += 1
-                        if evaluation['evaluation']['y_pred'][i][-1] != sample_class:
-                            class_sdc[variant][sample_class] += 1
+        subplots = {}
+        for amount in (1, 10, 100):
+            y = []
+            classes = set()
+            accumulation = defaultdict(lambda: defaultdict(list))
+            for evaluation in self.evaluations:
+                if evaluation['config']['Amount'] != amount:
+                    continue
+                accumulation[(evaluation['epoch'], evaluation['config']['Artifact'])][evaluation['variant_key']].append(evaluation)
+            class_sdc = defaultdict(lambda: defaultdict(int))
+            class_base_corrects = defaultdict(lambda: defaultdict(int))
+            for experiment in accumulation.values():
+                base_line = experiment['no_fault'][0]['evaluation']['y_pred']
+                oracle = experiment['no_fault'][0]['evaluation']['y_true']
+                for variant, evaluations in experiment.items():
+                    for evaluation in evaluations:
+                        for i, sample_pred in enumerate(base_line):
+                            sample_class = oracle[i]
+                            classes.add(sample_class)
+                            if base_line[i][-1] != sample_class:
+                                continue
+                            class_base_corrects[variant][sample_class] += 1
+                            if evaluation['evaluation']['y_pred'][i][-1] != sample_class:
+                                class_sdc[variant][sample_class] += 1
 
-        classes = sorted(list(classes))
-        for variant in self.get_variants():
-            y_ = []
-            for c in classes:
-                p = class_sdc[variant][c] / class_base_corrects[variant][c]
-                n = class_base_corrects[variant][c]
-                y_.append((p, self.z * np.sqrt(p * (1 - p) / n)))
-            y.append(list(zip(*y_)))
-        return classes, y
+            classes = sorted(list(classes))
+            for variant in self.get_variants():
+                y_ = []
+                for c in classes:
+                    p = class_sdc[variant][c] / class_base_corrects[variant][c]
+                    n = class_base_corrects[variant][c]
+                    y_.append((p, self.z * np.sqrt(p * (1 - p) / n)))
+                y.append(list(zip(*y_)))
+            _, titles = self.get_classes_info()
+            subplots['Amount={}'.format(amount)] = y
+        return [titles[c] for c in classes], subplots
 
     def get_dataset(self):
         class_names, class_titles = self.get_classes_info()

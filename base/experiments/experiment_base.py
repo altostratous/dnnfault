@@ -8,6 +8,7 @@ from google.auth.transport import Request
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from matplotlib import pyplot as plt
+import numpy as np
 
 import tfi
 from tensorflow.python.keras import Model
@@ -195,16 +196,29 @@ class ExperimentBase:
         x, y = getattr(self, plot_key)()
         self.draw_plot(x, y, title, x_title, y_title, pyplot_func)
 
-    def draw_plot(self, x, y, title, x_title, y_title, pyplot_func):
-        for y_, variant in zip(y, self.get_variants()):
-            y_value, error = y_
-            getattr(plt, pyplot_func)(x, y_value, yerr=error, label=variant, elinewidth=0.5, capsize=5)
-        plt.legend()
-        plt.title(title)
-        plt.xlabel(x_title)
-        plt.ylabel(y_title)
+    def draw_plot(self, x, sub_plots, title, x_title, y_title, pyplot_func):
+        fig, axe = plt.subplots(len(sub_plots), 1, figsize=(10, 8), sharex='row', sharey='row')
+        for sub_plot, y in enumerate(sub_plots.items()):
+            condition, y = y
+            ax = plt.subplot(len(sub_plots), 1, sub_plot + 1)
+            if sub_plot != len(sub_plots) - 1:
+                plt.setp(ax.get_xticklabels(), visible=False)
+            for y_, variant in zip(y, self.get_variants()):
+                y_value, error = y_
+                getattr(self, pyplot_func)(x, y_value, yerr=error, label=variant,
+                                           label_index=self.get_variants().index(variant))
+            plt.legend()
+            plt.title(title + ' ({})'.format(condition) if condition else '')
+            plt.ylabel(y_title)
+            if isinstance(x[0], str):
+                ax.set_xticks(list(range(len(x))))
+            else:
+                ax.set_xticks(x)
+            ax.set_xticklabels(x)
         plt.xticks(rotation='vertical')
+        plt.xlabel(x_title)
         plt.tight_layout()
+
         if self.args.pyplot_out:
             plt.savefig(self.args.pyplot_out)
         else:
@@ -310,3 +324,11 @@ class ExperimentBase:
     @abstractmethod
     def get_first_base_evaluation(self):
         pass
+
+    def errorbar(self, x, y, yerr, label, **kwargs):
+        plt.errorbar(x, y, yerr=yerr, label=label, elinewidth=0.5, capsize=5)
+
+    def bar(self, x, y, yerr, label, **kwargs):
+        variants_count = len(self.get_variants())
+        step = 1. / (variants_count + 1)
+        plt.bar(np.array(list(range(len(x)))) + (kwargs['label_index'] * step), y, yerr=yerr, label=label, capsize=5, width=step)
