@@ -332,3 +332,9 @@ class ExperimentBase:
         variants_count = len(self.get_variants())
         step = 1. / (variants_count + 1)
         plt.bar(np.array(list(range(len(x)))) + (kwargs['label_index'] * step), y, yerr=yerr, label=label, capsize=5, width=step)
+
+    def train(self):
+        model = self.get_model()
+        self.compile_model(model)
+        dataset = self.get_dataset()
+        model.fit(dataset)

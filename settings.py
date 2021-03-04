@@ -1,3 +1,4 @@
 APPS = (
     'clippervsranger',
+    'dropin'
 )

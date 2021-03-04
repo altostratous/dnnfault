@@ -1,5 +1,6 @@
-from tensorflow.python.keras import Model
 import re
+
+from tensorflow.python.keras import Model
 
 
 def insert_layer_nonseq(model, layer_regex, insert_layer_factory,
