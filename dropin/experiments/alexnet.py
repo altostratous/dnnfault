@@ -3,9 +3,16 @@ import os
 from base.experiments import ExperimentBase
 from tensorflow import keras
 import tensorflow as tf
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 
 class AlexNet(ExperimentBase):
+    checkpoint_filepath = 'tmp/weights/alexnet/alexnet'
+    training_epochs = 250
+
     def get_model(self, name=None):
         model = keras.models.Sequential([
             keras.layers.Conv2D(filters=96, kernel_size=(11, 11), strides=(4, 4), activation='relu',
@@ -29,6 +36,10 @@ class AlexNet(ExperimentBase):
             keras.layers.Dropout(0.5),
             keras.layers.Dense(10, activation='softmax')
         ])
+        try:
+            model.load_weights(self.checkpoint_filepath)
+        except Exception as e:
+            logger.error(str(e))
         return model
 
     def get_configs(self):
@@ -48,7 +59,6 @@ class AlexNet(ExperimentBase):
 
     def get_first_base_evaluation(self):
         pass
-
 
     def train(self):
         (train_images, train_labels), (test_images, test_labels) = self.get_dataset().load_data()
@@ -87,13 +97,12 @@ class AlexNet(ExperimentBase):
                          .batch(batch_size=32, drop_remainder=True))
         model = self.get_model()
         self.compile_model(model)
-        checkpoint_filepath = 'tmp/alexnet'
         model.fit(train_ds,
-                  epochs=50,
+                  epochs=self.training_epochs,
                   validation_data=validation_ds,
                   validation_freq=1, callbacks=[
                 tf.keras.callbacks.ModelCheckpoint(
-                    filepath=checkpoint_filepath,
+                    filepath=self.checkpoint_filepath,
                     save_weights_only=True,
                     monitor='val_accuracy',
                     mode='max',
