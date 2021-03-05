@@ -86,15 +86,15 @@ class AlexNet(ExperimentBase):
         train_ds = (train_ds
                     .map(process_images)
                     .shuffle(buffer_size=train_ds_size)
-                    .batch(batch_size=32, drop_remainder=True))
+                    .batch(batch_size=8, drop_remainder=True))
         test_ds = (test_ds
                    .map(process_images)
                    .shuffle(buffer_size=train_ds_size)
-                   .batch(batch_size=32, drop_remainder=True))
+                   .batch(batch_size=8, drop_remainder=True))
         validation_ds = (validation_ds
                          .map(process_images)
                          .shuffle(buffer_size=train_ds_size)
-                         .batch(batch_size=32, drop_remainder=True))
+                         .batch(batch_size=8, drop_remainder=True))
         model = self.get_model()
         self.compile_model(model)
         model.fit(train_ds,
