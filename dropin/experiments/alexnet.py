@@ -119,13 +119,16 @@ class AlexNet(ExperimentBase):
         train_images, train_labels = train_images[5000:], train_labels[5000:]
         train_ds = tf.data.Dataset.from_tensor_slices((train_images, train_labels))
         train_ds_size = tf.data.experimental.cardinality(train_ds).numpy()
-        train_ds = (train_ds
-                    .map(self.process_images)
-                    .shuffle(buffer_size=train_ds_size)
-                    .batch(batch_size=8, drop_remainder=True))
+        # train_ds = (train_ds
+        #             .map(self.process_images)
+        #             .shuffle(buffer_size=train_ds_size)
+        #             .batch(batch_size=8, drop_remainder=True))
+
         def representative_dataset():
-            for i, l in train_ds.batch(1).take(100):
-                yield i
+            for data in tf.data.Dataset.from_tensor_slices((train_images)).map(
+                    self.process_images
+            ).batch(1).take(100):
+                yield [data.astype(tf.float32)]
         converter.representative_dataset = representative_dataset
         converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8]
         converter.inference_input_type = tf.int8  # or tf.uint8
