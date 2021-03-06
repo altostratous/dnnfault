@@ -117,20 +117,15 @@ class AlexNet(ExperimentBase):
         converter.optimizations = [tf.lite.Optimize.DEFAULT]
         (train_images, train_labels), (test_images, test_labels) = self.get_dataset().load_data()
         train_images, train_labels = train_images[5000:], train_labels[5000:]
-        train_ds = tf.data.Dataset.from_tensor_slices((train_images, train_labels))
-        train_ds_size = tf.data.experimental.cardinality(train_ds).numpy()
-        # train_ds = (train_ds
-        #             .map(self.process_images)
-        #             .shuffle(buffer_size=train_ds_size)
-        #             .batch(batch_size=8, drop_remainder=True))
 
         def representative_dataset():
-            for data in tf.data.Dataset.from_tensor_slices((train_images, train_labels)).map(
+            for data, label in tf.data.Dataset.from_tensor_slices((train_images, train_labels)).map(
                     self.process_images
             ).batch(1).take(100):
-                yield [data.astype(tf.float32)]
+                yield [tf.cast(data, tf.float32)]
         converter.representative_dataset = representative_dataset
         converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8]
         converter.inference_input_type = tf.int8  # or tf.uint8
         converter.inference_output_type = tf.int8  # or tf.uint8
         tflite_quant_model = converter.convert()
+        tflite_quant_model.summery()
