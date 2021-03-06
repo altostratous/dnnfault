@@ -125,7 +125,7 @@ class AlexNet(ExperimentBase):
         #             .batch(batch_size=8, drop_remainder=True))
 
         def representative_dataset():
-            for data in tf.data.Dataset.from_tensor_slices((train_images)).map(
+            for data in tf.data.Dataset.from_tensor_slices((train_images, train_labels)).map(
                     self.process_images
             ).batch(1).take(100):
                 yield [data.astype(tf.float32)]
