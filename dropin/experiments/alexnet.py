@@ -1,5 +1,7 @@
 import os
 
+from tensorflow_model_optimization.python.core.quantization.keras.quantize import quantize_model
+
 from base.experiments import ExperimentBase
 from tensorflow import keras
 import tensorflow as tf
@@ -60,6 +62,14 @@ class AlexNet(ExperimentBase):
     def get_first_base_evaluation(self):
         pass
 
+    @staticmethod
+    def process_images(image, label):
+        # Normalize images to have a mean of 0 and standard deviation of 1
+        image = tf.image.per_image_standardization(image)
+        # Resize images from 32x32 to 277x277
+        image = tf.image.resize(image, (227, 227))
+        return image, label
+
     def train(self):
         (train_images, train_labels), (test_images, test_labels) = self.get_dataset().load_data()
         CLASS_NAMES = ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck']
@@ -69,13 +79,6 @@ class AlexNet(ExperimentBase):
         test_ds = tf.data.Dataset.from_tensor_slices((test_images, test_labels))
         validation_ds = tf.data.Dataset.from_tensor_slices((validation_images, validation_labels))
 
-        def process_images(image, label):
-            # Normalize images to have a mean of 0 and standard deviation of 1
-            image = tf.image.per_image_standardization(image)
-            # Resize images from 32x32 to 277x277
-            image = tf.image.resize(image, (227, 227))
-            return image, label
-
         train_ds_size = tf.data.experimental.cardinality(train_ds).numpy()
         test_ds_size = tf.data.experimental.cardinality(test_ds).numpy()
         validation_ds_size = tf.data.experimental.cardinality(validation_ds).numpy()
@@ -84,15 +87,15 @@ class AlexNet(ExperimentBase):
         print("Validation data size:", validation_ds_size)
 
         train_ds = (train_ds
-                    .map(process_images)
+                    .map(self.process_images)
                     .shuffle(buffer_size=train_ds_size)
                     .batch(batch_size=8, drop_remainder=True))
         test_ds = (test_ds
-                   .map(process_images)
+                   .map(self.process_images)
                    .shuffle(buffer_size=train_ds_size)
                    .batch(batch_size=8, drop_remainder=True))
         validation_ds = (validation_ds
-                         .map(process_images)
+                         .map(self.process_images)
                          .shuffle(buffer_size=train_ds_size)
                          .batch(batch_size=8, drop_remainder=True))
         model = self.get_model()
@@ -107,3 +110,24 @@ class AlexNet(ExperimentBase):
                     monitor='val_accuracy',
                     mode='max',
                     save_best_only=True)])
+
+    def quantize(self):
+        model = self.get_model()
+        converter = tf.lite.TFLiteConverter.from_keras_model(model)
+        converter.optimizations = [tf.lite.Optimize.DEFAULT]
+        (train_images, train_labels), (test_images, test_labels) = self.get_dataset().load_data()
+        train_images, train_labels = train_images[5000:], train_labels[5000:]
+        train_ds = tf.data.Dataset.from_tensor_slices((train_images, train_labels))
+        train_ds_size = tf.data.experimental.cardinality(train_ds).numpy()
+        train_ds = (train_ds
+                    .map(self.process_images)
+                    .shuffle(buffer_size=train_ds_size)
+                    .batch(batch_size=8, drop_remainder=True))
+        def representative_dataset():
+            for i, l in train_ds.batch(1).take(100):
+                yield i
+        converter.representative_dataset = representative_dataset
+        converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8]
+        converter.inference_input_type = tf.int8  # or tf.uint8
+        converter.inference_output_type = tf.int8  # or tf.uint8
+        tflite_quant_model = converter.convert()
