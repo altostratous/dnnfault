@@ -1,6 +1,7 @@
 import os
 
-from tensorflow_model_optimization.python.core.quantization.keras.quantize import quantize_model
+from tensorflow_model_optimization.python.core.quantization.keras.quantize import quantize_model, quantize_apply, \
+    quantize_annotate_layer
 
 from base.experiments import ExperimentBase
 from tensorflow import keras
@@ -113,6 +114,32 @@ class AlexNet(ExperimentBase):
 
     def quantize(self):
         model = self.get_model()
+
+        def apply_quantization_to_dense(layer):
+            if isinstance(layer, tf.keras.layers.Dense) or isinstance(layer, tf.keras.layers.Conv2D):
+                return quantize_annotate_layer(layer)
+            return layer
+
+        # Use `tf.keras.models.clone_model` to apply `apply_quantization_to_dense`
+        # to the layers of the model.
+        annotated_model = tf.keras.models.clone_model(
+            model,
+            clone_function=apply_quantization_to_dense,
+        )
+
+        # Now that the Dense layers are annotated,
+        # `quantize_apply` actually makes the model quantization aware.
+        quant_aware_model = quantize_apply(annotated_model)
+        quant_aware_model.summary()
+        (train_images, train_labels), (test_images, test_labels) = self.get_dataset().load_data()
+        self.compile_model(quant_aware_model)
+        self.compile_model(model)
+        for x, y in tf.data.Dataset.from_tensor_slices((test_images, test_labels)).map(
+            self.process_images
+        ).shuffle(buffer_size=1024).take(1024).batch(1024):
+            quant_aware_model.evaluate(x, y)
+            model.evaluate(x, y)
+        exit()
         converter = tf.lite.TFLiteConverter.from_keras_model(model)
         converter.optimizations = [tf.lite.Optimize.DEFAULT]
         (train_images, train_labels), (test_images, test_labels) = self.get_dataset().load_data()
