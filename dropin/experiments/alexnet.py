@@ -7,13 +7,14 @@ from base.experiments import ExperimentBase
 from tensorflow import keras
 import tensorflow as tf
 import logging
+from matplotlib import pyplot as plt
 
 
 logger = logging.getLogger(__name__)
 
 
 class AlexNet(ExperimentBase):
-    checkpoint_filepath = 'tmp/weights/alexnet/alexnet'
+    checkpoint_filepath = 'tmp/weights/alexnet/alexnet_q'
     training_epochs = 250
 
     def get_model(self, name=None):
@@ -43,7 +44,23 @@ class AlexNet(ExperimentBase):
             model.load_weights(self.checkpoint_filepath)
         except Exception as e:
             logger.error(str(e))
-        return model
+
+        def apply_quantization_to_dense(layer):
+            if isinstance(layer, tf.keras.layers.Dense) or isinstance(layer, tf.keras.layers.Conv2D):
+                return quantize_annotate_layer(layer)
+            return layer
+
+        # Use `tf.keras.models.clone_model` to apply `apply_quantization_to_dense`
+        # to the layers of the model.
+        annotated_model = tf.keras.models.clone_model(
+            model,
+            clone_function=apply_quantization_to_dense,
+        )
+
+        # Now that the Dense layers are annotated,
+        # `quantize_apply` actually makes the model quantization aware.
+        quant_aware_model = quantize_apply(annotated_model)
+        return quant_aware_model
 
     def get_configs(self):
         pass
@@ -73,7 +90,6 @@ class AlexNet(ExperimentBase):
 
     def train(self):
         (train_images, train_labels), (test_images, test_labels) = self.get_dataset().load_data()
-        CLASS_NAMES = ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck']
         validation_images, validation_labels = train_images[:5000], train_labels[:5000]
         train_images, train_labels = train_images[5000:], train_labels[5000:]
         train_ds = tf.data.Dataset.from_tensor_slices((train_images, train_labels))
@@ -134,11 +150,17 @@ class AlexNet(ExperimentBase):
         (train_images, train_labels), (test_images, test_labels) = self.get_dataset().load_data()
         self.compile_model(quant_aware_model)
         self.compile_model(model)
+        CLASS_NAMES = ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck']
+
         for x, y in tf.data.Dataset.from_tensor_slices((test_images, test_labels)).map(
             self.process_images
-        ).shuffle(buffer_size=1024).take(1024).batch(1024):
-            quant_aware_model.evaluate(x, y)
-            model.evaluate(x, y)
+        ).shuffle(buffer_size=1024).take(10).batch(1):
+
+            plt.title(CLASS_NAMES[y[0][0]])
+            plt.imshow(x[0])
+            print([CLASS_NAMES[i] for i in tf.argsort(quant_aware_model.predict(x))[0]])
+            print([CLASS_NAMES[i] for i in tf.argsort(model.predict(x))[0]])
+            plt.show()
         exit()
         converter = tf.lite.TFLiteConverter.from_keras_model(model)
         converter.optimizations = [tf.lite.Optimize.DEFAULT]
