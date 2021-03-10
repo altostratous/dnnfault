@@ -290,7 +290,7 @@ class ClipperVSRangerBase(ExperimentBase, metaclass=ABCMeta):
             validation_split=self.args.validation_split,
             subset=self.args.subset,
             seed=0,
-            batch_size=2000
+            batch_size=10000
         )
         return dataset
 
