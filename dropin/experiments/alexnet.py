@@ -28,7 +28,7 @@ class AlexNet(ExperimentBase):
         super().__init__(args)
         self._model = None
 
-    def get_model(self, name=None):
+    def get_model(self, name=None, training_variant='dropin'):
         if self._model:
             return self._model
         model = keras.models.Sequential([
@@ -55,7 +55,7 @@ class AlexNet(ExperimentBase):
             keras.layers.Dense(10, activation='softmax')
         ])
         try:
-            model.load_weights(self.get_checkpoint_filepath())
+            model.load_weights(self.get_checkpoint_filepath(variant=training_variant))
         except Exception as e:
             logger.error(str(e))
         dropin = Dropin(model, a=0, b=257)
@@ -108,7 +108,10 @@ class AlexNet(ExperimentBase):
         validation_images, validation_labels = train_images[:5000], train_labels[:5000]
         train_images, train_labels = train_images[5000:], train_labels[5000:]
 
-        model = self.get_model()
+        if dropin:
+            model = self.get_model(training_variant='dropin')
+        else:
+            model = self.get_model()
         self.compile_model(model)
 
         train_ds = tf.data.Dataset.from_tensor_slices((train_images,
