@@ -158,6 +158,7 @@ class AlexNet(ExperimentBase):
                     yield data_augmentor(data), label
         model.fit(training_ds(),
                   epochs=self.training_epochs,
+                  validation_steps=int(validation_ds_size / batch_size) - 1,
                   steps_per_epoch=int(train_ds_size / batch_size) - 1,
                   validation_data=validation_ds_generator(),
                   validation_freq=1, callbacks=[
