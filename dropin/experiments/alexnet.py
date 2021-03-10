@@ -156,12 +156,13 @@ class AlexNet(ExperimentBase):
             for _ in range(self.epochs):
                 for data, label in validation_ds:
                     yield data_augmentor(data), label
-        model.fit(training_ds(),
-                  epochs=self.training_epochs,
-                  validation_steps=int(validation_ds_size / batch_size) - 1,
-                  steps_per_epoch=int(train_ds_size / batch_size) - 1,
-                  validation_data=validation_ds_generator(),
-                  validation_freq=1, callbacks=[
+
+        model.fit_generator(training_ds(),
+                            epochs=self.training_epochs,
+                            validation_steps=int(validation_ds_size / batch_size) - 1,
+                            steps_per_epoch=int(train_ds_size / batch_size) - 1,
+                            validation_data=validation_ds_generator(),
+                            validation_freq=1, callbacks=[
                 tf.keras.callbacks.ModelCheckpoint(
                     filepath=self.get_checkpoint_filepath(variant='' if not dropin else 'dropin'),
                     save_weights_only=True,
