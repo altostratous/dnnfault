@@ -133,18 +133,19 @@ class AlexNet(ExperimentBase):
         else:
             data_augmentor = model.dropin.augment_zero
 
+        batch_size = 8
         train_ds = (train_ds
                     .map(self.process_images)
                     .shuffle(buffer_size=train_ds_size)
-                    .batch(batch_size=8, drop_remainder=True))
+                    .batch(batch_size=batch_size, drop_remainder=True))
         test_ds = (test_ds
                    .map(self.process_images)
                    .shuffle(buffer_size=train_ds_size)
-                   .batch(batch_size=8, drop_remainder=True))
+                   .batch(batch_size=batch_size, drop_remainder=True))
         validation_ds = (validation_ds
                          .map(self.process_images)
                          .shuffle(buffer_size=train_ds_size)
-                         .batch(batch_size=8, drop_remainder=True))
+                         .batch(batch_size=batch_size, drop_remainder=True))
 
         def training_ds():
             for _ in range(self.epochs):
@@ -157,7 +158,7 @@ class AlexNet(ExperimentBase):
                     yield data_augmentor(data), label
         model.fit(training_ds(),
                   epochs=self.training_epochs,
-                  steps_per_epoch=train_ds_size,
+                  steps_per_epoch=int(train_ds_size / batch_size),
                   validation_data=validation_ds_generator(),
                   validation_freq=1, callbacks=[
                 tf.keras.callbacks.ModelCheckpoint(
