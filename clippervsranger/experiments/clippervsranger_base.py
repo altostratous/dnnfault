@@ -42,7 +42,9 @@ class ClipperVSRangerBase(ExperimentBase, metaclass=ABCMeta):
         plots = {
             'sdc': (self.model_name + ' SDC', 'bit-flips', 'sdc', 'errorbar'),
             'class_sdc': (self.model_name + ' Class-wise SDC', 'class index', 'sdc', 'bar'),
+            'sorted_class_sdc': (self.model_name + ' Class-wise SDC', 'class index', 'sdc', 'bar'),
             'layer_sdc': (self.model_name + ' Layer-wise SDC', 'layer index', 'sdc', 'errorbar'),
+            'channel_redundancy': (self.model_name + ' Channel Redundancy', 'class index', 'redundancy', 'bar'),
         }
         return plots
 
@@ -215,10 +217,73 @@ class ClipperVSRangerBase(ExperimentBase, metaclass=ABCMeta):
             subplots['Amount={}'.format(amount)] = y
         return [titles[c] for c in classes], subplots
 
+    def sorted_class_sdc(self):
+        subplots = {}
+        good_classes = set()
+        population = {}
+        for amount in (1, 10, 100):
+            y = []
+            classes = set()
+            accumulation = defaultdict(lambda: defaultdict(list))
+            for evaluation in self.evaluations:
+                if evaluation['config']['Amount'] != amount:
+                    continue
+                accumulation[(evaluation['epoch'], evaluation['config']['Artifact'])][evaluation['variant_key']].append(evaluation)
+            class_sdc = defaultdict(lambda: defaultdict(int))
+            class_base_corrects = defaultdict(lambda: defaultdict(int))
+            for experiment in accumulation.values():
+                base_line = experiment['no_fault'][0]['evaluation']['y_pred']
+                oracle = experiment['no_fault'][0]['evaluation']['y_true']
+                for variant, evaluations in experiment.items():
+                    for evaluation in evaluations:
+                        for i, sample_pred in enumerate(base_line):
+                            sample_class = oracle[i]
+                            classes.add(sample_class)
+                            if base_line[i][-1] != sample_class:
+                                continue
+                            class_base_corrects[variant][sample_class] += 1
+                            if evaluation['evaluation']['y_pred'][i][-1] != sample_class:
+                                class_sdc[variant][sample_class] += 1
+
+            classes = sorted(list(classes))
+            for variant in self.get_variants():
+                y_ = []
+                for c in classes:
+                    n = class_base_corrects[variant][c]
+                    population[c] = n
+                    wrongs = class_sdc[variant][c]
+                    if not n:
+                        y_.append((0, 0))
+                        continue
+                    p = wrongs / class_base_corrects[variant][c]
+                    y_.append((p, self.z * np.sqrt(p * (1 - p) / n)))
+                    if wrongs:
+                        if amount == 1:
+                            good_classes.add(c)
+                y.append(list(zip(*y_)))
+            _, titles = self.get_classes_info()
+            subplots['Amount={}'.format(amount)] = y
+        good_classes = list(sorted(good_classes))
+        good_classes = good_classes[:5] + good_classes[-5:]
+        _, good_classes = list(zip(*sorted(zip([subplots['Amount=10'][1][0][c] for c in good_classes], good_classes), reverse=True)))
+        result = [titles[c] for c in good_classes], {
+            **{
+                key: [
+                    [[variant[0][c] for c in good_classes],
+                     [variant[1][c] for c in good_classes]]
+                    for variant in y] for key, y in subplots.items()
+            },
+            'Accurate': [[
+                [population[c] for c in good_classes],
+                [0 for _ in good_classes],
+            ]]
+        }
+        return result
+
     def get_dataset(self):
         class_names, class_titles = self.get_classes_info()
         dataset = image_dataset_from_directory(
-            self.args.dataset_path or '../ImageNet-Datasets-Downloader/imagenet/imagenet_images',
+            self.get_dataset_path(),
             label_mode='categorical',
             class_names=class_names,
             image_size=(224, 224),
@@ -228,6 +293,9 @@ class ClipperVSRangerBase(ExperimentBase, metaclass=ABCMeta):
             batch_size=2000
         )
         return dataset
+
+    def get_dataset_path(self):
+        return self.args.dataset_path or '../ImageNet-Datasets-Downloader/imagenet/imagenet_images'
 
     def get_classes_info(self):
         fpath = data_utils.get_file(
@@ -304,3 +372,39 @@ class ClipperVSRangerBase(ExperimentBase, metaclass=ABCMeta):
         first_base_evaluation = [e for e in self.evaluations[:len(self.get_variants())]
                                  if e['variant_key'] == 'no_fault'][0]
         return first_base_evaluation
+
+    def channel_redundancy(self):
+        names, titles = self.get_classes_info()
+        classes = [titles.index('diamondback'), titles.index('fig')]
+        class_names = [names[c] for c in classes]
+        dataset = image_dataset_from_directory(
+            self.get_dataset_path(),
+            label_mode='categorical',
+            class_names=class_names,
+            image_size=(224, 224),
+            validation_split = self.args.validation_split,
+            subset=self.args.subset,
+            seed=0,
+            batch_size=2000
+        )
+        classes = [0, 1]
+        subplots = []
+        for c in classes:
+            data = []
+            subplot = [[], []]
+            for x, y in dataset:
+                for x_, y_ in zip(x, y):
+                    if c == np.argmax(y_):
+                        data.append(x_)
+            profiler_model = self.get_variant_profiler(self.get_model())
+            self.compile_model(profiler_model)
+            profiler_model.run_eagerly = True
+            ProfileLayer.activated_channels.clear()
+            profiler_model.predict(np.array(data), batch_size=len(data))
+
+            for _, r in ProfileLayer.activated_channels.items():
+                subplot[0].append(sum(r) / len(r))
+                subplot[1].append(0)
+            subplots.append(subplot)
+        return [l for l, _ in ProfileLayer.activated_channels.items()], {'a': subplots}
+

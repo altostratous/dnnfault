@@ -6,11 +6,17 @@ import numpy as np
 
 class ProfileLayer(Layer):
     profile = defaultdict(list)
+    activated_channels = defaultdict(list)
 
     def call(self, inputs, **kwargs):
         if hasattr(inputs, 'numpy'):
             matrix = inputs.numpy()
-            self.profile[self.name].append([np.max(matrix), np.min(matrix)])
+            maximum = np.max(matrix)
+            minimum = np.min(matrix)
+            self.profile[self.name].append([maximum, minimum])
+            matrix = np.count_nonzero(np.maximum(0, matrix - minimum), axis=len(matrix.shape) - 1)
+            matrix = np.average(matrix)
+            self.activated_channels[self.name].append(matrix)
         return super().call(inputs, **kwargs)
 
 
