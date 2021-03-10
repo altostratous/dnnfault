@@ -144,14 +144,17 @@ class AlexNet(ExperimentBase):
                          .batch(batch_size=8, drop_remainder=True))
 
         def training_ds():
-            for data, label in train_ds:
-                yield data_augmentor(data), label
+            for _ in range(self.epochs):
+                for data, label in train_ds:
+                    yield data_augmentor(data), label
 
         def validation_ds_generator():
-            for data, label in validation_ds:
-                yield data_augmentor(data), label
+            for _ in range(self.epochs):
+                for data, label in validation_ds:
+                    yield data_augmentor(data), label
         model.fit(training_ds(),
                   epochs=self.training_epochs,
+                  steps_per_epoch=train_ds_size,
                   validation_data=validation_ds_generator(),
                   validation_freq=1, callbacks=[
                 tf.keras.callbacks.ModelCheckpoint(
