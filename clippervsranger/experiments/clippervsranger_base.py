@@ -65,7 +65,7 @@ class ClipperVSRangerBase(ExperimentBase, metaclass=ABCMeta):
                 conf.update({'Artifact': layer})
                 yield conf
 
-    def evaluate(self, model, x, y_true):
+    def evaluate(self, model, x, y_true, config):
         y_pred = model.predict(x, batch_size=64)
         return {
             'acc': top_k_categorical_accuracy(y_true, y_pred, k=1),

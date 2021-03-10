@@ -1,8 +1,10 @@
 import logging
 
 import tensorflow as tf
+import numpy as np
 from matplotlib import pyplot as plt
 from tensorflow import keras
+from tensorflow.python.keras.metrics import top_k_categorical_accuracy
 from tensorflow_model_optimization.python.core.quantization.keras.quantize import quantize_apply, \
     quantize_annotate_layer
 
@@ -16,11 +18,21 @@ class AlexNet(ExperimentBase):
     checkpoint_filepath = 'tmp/weights/alexnet/alexnet'
     training_epochs = 250
     variants = ExperimentBase.variants + (
-        'dropin',
+        # 'dropin',
     )
+    default_config = {
+        'mode': 'evaluation'
+    }
+
+    def __init__(self, args):
+        super().__init__(args)
+        self._model = None
 
     def get_model(self, name=None):
+        if self._model:
+            return self._model
         model = keras.models.Sequential([
+            keras.layers.Layer(input_shape=(227, 227, 3)),
             keras.layers.Conv2D(filters=96, kernel_size=(11, 11), strides=(4, 4), activation='relu',
                                 input_shape=(227, 227, 3)),
             keras.layers.BatchNormalization(),
@@ -43,19 +55,36 @@ class AlexNet(ExperimentBase):
             keras.layers.Dense(10, activation='softmax')
         ])
         try:
-            model.load_weights(self.checkpoint_filepath)
+            model.load_weights(self.get_checkpoint_filepath())
         except Exception as e:
             logger.error(str(e))
+        dropin = Dropin(model, a=0, b=257)
+        model = dropin.augment_model(model)
+        setattr(model, 'dropin', dropin)
+        self._model = model
         return model
 
     def get_configs(self):
-        pass
+        return [{}]
 
-    def evaluate(self, model, x, y_true):
-        pass
+    def evaluate(self, model, x, y_true, config):
+        y_pred = model.predict(x=model.dropin.augment_data(x, config),
+                               batch_size=64)
+        return {
+            'acc': top_k_categorical_accuracy(y_true, y_pred, k=1),
+            'y_true': np.argmax(y_true, axis=1),
+            'y_pred': np.argsort(y_pred, axis=1).T[-5:].T
+        }
+
+    def get_faulty_model(self, config, name=None):
+        return self.get_model(name=name)
 
     def get_dataset(self):
-        return keras.datasets.cifar10
+        (train_images, train_labels), (test_images, test_labels) = keras.datasets.cifar10.load_data()
+        test_ds = tf.data.Dataset.from_tensor_slices((test_images, test_labels))
+        s = tf.data.Dataset.cardinality(test_ds)
+        test_ds = test_ds.shuffle(buffer_size=s).take(256).batch(256).map(self.process_images)
+        return test_ds
 
     def compile_model(self, model):
         model.compile(
@@ -75,17 +104,17 @@ class AlexNet(ExperimentBase):
         return image, label
 
     def train(self, dropin=False):
-        (train_images, train_labels), (test_images, test_labels) = self.get_dataset().load_data()
+        (train_images, train_labels), (test_images, test_labels) = keras.datasets.cifar10.load_data()
         validation_images, validation_labels = train_images[:5000], train_labels[:5000]
         train_images, train_labels = train_images[5000:], train_labels[5000:]
 
         model = self.get_model()
         self.compile_model(model)
-        if dropin:
-            dropin = Dropin(model, validation_images)
 
-        train_ds = tf.data.Dataset.from_tensor_slices((train_images, train_labels))
-        test_ds = tf.data.Dataset.from_tensor_slices((test_images, test_labels))
+        train_ds = tf.data.Dataset.from_tensor_slices((train_images,
+                                                       train_labels))
+        test_ds = tf.data.Dataset.from_tensor_slices((test_images,
+                                                      test_labels))
         validation_ds = tf.data.Dataset.from_tensor_slices((validation_images, validation_labels))
 
         train_ds_size = tf.data.experimental.cardinality(train_ds).numpy()
@@ -95,28 +124,36 @@ class AlexNet(ExperimentBase):
         print("Test data size:", test_ds_size)
         print("Validation data size:", validation_ds_size)
 
+        if dropin:
+            data_augmentor = model.dropin.augment_data
+        else:
+            data_augmentor = model.dropin.augment_zero
+
         train_ds = (train_ds
                     .map(self.process_images)
                     .shuffle(buffer_size=train_ds_size)
-                    .batch(batch_size=8, drop_remainder=True))
+                    .batch(batch_size=8, drop_remainder=True).map(data_augmentor))
         test_ds = (test_ds
                    .map(self.process_images)
                    .shuffle(buffer_size=train_ds_size)
-                   .batch(batch_size=8, drop_remainder=True))
+                   .batch(batch_size=8, drop_remainder=True).map(data_augmentor))
         validation_ds = (validation_ds
                          .map(self.process_images)
                          .shuffle(buffer_size=train_ds_size)
-                         .batch(batch_size=8, drop_remainder=True))
+                         .batch(batch_size=8, drop_remainder=True).map(data_augmentor))
         model.fit(train_ds,
                   epochs=self.training_epochs,
                   validation_data=validation_ds,
                   validation_freq=1, callbacks=[
                 tf.keras.callbacks.ModelCheckpoint(
-                    filepath=self.checkpoint_filepath,
+                    filepath=self.get_checkpoint_filepath(variant='' if not dropin else 'dropin'),
                     save_weights_only=True,
                     monitor='val_accuracy',
                     mode='max',
                     save_best_only=True)])
+
+    def get_checkpoint_filepath(self, variant=''):
+        return self.checkpoint_filepath + ('_' if variant else '') + variant
 
     def quantize(self):
         model = self.get_model()
@@ -171,3 +208,11 @@ class AlexNet(ExperimentBase):
 
     def summary(self):
         self.get_model().summary()
+
+    def train_with_dropin(self):
+        self.train(dropin=True)
+
+    def get_variant_dropin(self, model, name):
+        model = self.copy_model(model, name=name)
+        model.set_weights(self.get_checkpoint_filepath('dropin'))
+        return model

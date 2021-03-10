@@ -97,7 +97,7 @@ class ExperimentBase:
                                                                                 ))
                     logger.info('Evaluating ...')
                     self.compile_model(model)
-                    evaluation_result_chunk = self.evaluate(model, x, y_true)
+                    evaluation_result_chunk = self.evaluate(model, x, y_true, config)
                     logger.info('Saving evaluation ...')
                     self.save_evaluation_chunk(epoch, config, config_id, variant_key, evaluation_result_chunk)
                     gc.collect()
@@ -136,7 +136,7 @@ class ExperimentBase:
         return self.copy_model(model, name=name)
 
     @abstractmethod
-    def evaluate(self, model, x, y_true):
+    def evaluate(self, model, x, y_true, config):
         pass
 
     def get_default_config(self):
