@@ -1,21 +1,23 @@
-import os
+import logging
 
-from tensorflow_model_optimization.python.core.quantization.keras.quantize import quantize_model, quantize_apply, \
+import tensorflow as tf
+from matplotlib import pyplot as plt
+from tensorflow import keras
+from tensorflow_model_optimization.python.core.quantization.keras.quantize import quantize_apply, \
     quantize_annotate_layer
 
 from base.experiments import ExperimentBase
-from tensorflow import keras
-import tensorflow as tf
-import logging
-from matplotlib import pyplot as plt
-
+from dropin.utils import Dropin
 
 logger = logging.getLogger(__name__)
 
 
 class AlexNet(ExperimentBase):
-    checkpoint_filepath = 'tmp/weights/alexnet/alexnet_q'
+    checkpoint_filepath = 'tmp/weights/alexnet/alexnet'
     training_epochs = 250
+    variants = ExperimentBase.variants + (
+        'dropin',
+    )
 
     def get_model(self, name=None):
         model = keras.models.Sequential([
@@ -44,23 +46,7 @@ class AlexNet(ExperimentBase):
             model.load_weights(self.checkpoint_filepath)
         except Exception as e:
             logger.error(str(e))
-
-        def apply_quantization_to_dense(layer):
-            if isinstance(layer, tf.keras.layers.Dense) or isinstance(layer, tf.keras.layers.Conv2D):
-                return quantize_annotate_layer(layer)
-            return layer
-
-        # Use `tf.keras.models.clone_model` to apply `apply_quantization_to_dense`
-        # to the layers of the model.
-        annotated_model = tf.keras.models.clone_model(
-            model,
-            clone_function=apply_quantization_to_dense,
-        )
-
-        # Now that the Dense layers are annotated,
-        # `quantize_apply` actually makes the model quantization aware.
-        quant_aware_model = quantize_apply(annotated_model)
-        return quant_aware_model
+        return model
 
     def get_configs(self):
         pass
@@ -88,10 +74,16 @@ class AlexNet(ExperimentBase):
         image = tf.image.resize(image, (227, 227))
         return image, label
 
-    def train(self):
+    def train(self, dropin=False):
         (train_images, train_labels), (test_images, test_labels) = self.get_dataset().load_data()
         validation_images, validation_labels = train_images[:5000], train_labels[:5000]
         train_images, train_labels = train_images[5000:], train_labels[5000:]
+
+        model = self.get_model()
+        self.compile_model(model)
+        if dropin:
+            dropin = Dropin(model, validation_images)
+
         train_ds = tf.data.Dataset.from_tensor_slices((train_images, train_labels))
         test_ds = tf.data.Dataset.from_tensor_slices((test_images, test_labels))
         validation_ds = tf.data.Dataset.from_tensor_slices((validation_images, validation_labels))
@@ -115,8 +107,6 @@ class AlexNet(ExperimentBase):
                          .map(self.process_images)
                          .shuffle(buffer_size=train_ds_size)
                          .batch(batch_size=8, drop_remainder=True))
-        model = self.get_model()
-        self.compile_model(model)
         model.fit(train_ds,
                   epochs=self.training_epochs,
                   validation_data=validation_ds,
@@ -177,4 +167,7 @@ class AlexNet(ExperimentBase):
         converter.inference_input_type = tf.int8  # or tf.uint8
         converter.inference_output_type = tf.int8  # or tf.uint8
         tflite_quant_model = converter.convert()
-        tflite_quant_model.summery()
+        logger.info('Model quantized for tensorflow lite successfully')
+
+    def summary(self):
+        self.get_model().summary()
