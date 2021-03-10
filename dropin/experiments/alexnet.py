@@ -115,7 +115,8 @@ class AlexNet(ExperimentBase):
                                                        train_labels))
         test_ds = tf.data.Dataset.from_tensor_slices((test_images,
                                                       test_labels))
-        validation_ds = tf.data.Dataset.from_tensor_slices((validation_images, validation_labels))
+        validation_ds = tf.data.Dataset.from_tensor_slices((model.dropin.augment_data(validation_images),
+                                                            validation_labels))
 
         train_ds_size = tf.data.experimental.cardinality(train_ds).numpy()
         test_ds_size = tf.data.experimental.cardinality(test_ds).numpy()
@@ -132,16 +133,20 @@ class AlexNet(ExperimentBase):
         train_ds = (train_ds
                     .map(self.process_images)
                     .shuffle(buffer_size=train_ds_size)
-                    .batch(batch_size=8, drop_remainder=True).map(data_augmentor))
+                    .batch(batch_size=8, drop_remainder=True))
         test_ds = (test_ds
                    .map(self.process_images)
                    .shuffle(buffer_size=train_ds_size)
-                   .batch(batch_size=8, drop_remainder=True).map(data_augmentor))
+                   .batch(batch_size=8, drop_remainder=True))
         validation_ds = (validation_ds
                          .map(self.process_images)
                          .shuffle(buffer_size=train_ds_size)
-                         .batch(batch_size=8, drop_remainder=True).map(data_augmentor))
-        model.fit(train_ds,
+                         .batch(batch_size=8, drop_remainder=True))
+
+        def training_ds():
+            for batch in train_ds:
+                yield model.dropin.augment_data(batch)
+        model.fit(training_ds,
                   epochs=self.training_epochs,
                   validation_data=validation_ds,
                   validation_freq=1, callbacks=[
@@ -180,9 +185,8 @@ class AlexNet(ExperimentBase):
         CLASS_NAMES = ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck']
 
         for x, y in tf.data.Dataset.from_tensor_slices((test_images, test_labels)).map(
-            self.process_images
+                self.process_images
         ).shuffle(buffer_size=1024).take(10).batch(1):
-
             plt.title(CLASS_NAMES[y[0][0]])
             plt.imshow(x[0])
             print([CLASS_NAMES[i] for i in tf.argsort(quant_aware_model.predict(x))[0]])
@@ -199,6 +203,7 @@ class AlexNet(ExperimentBase):
                     self.process_images
             ).batch(1).take(100):
                 yield [tf.cast(data, tf.float32)]
+
         converter.representative_dataset = representative_dataset
         converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8]
         converter.inference_input_type = tf.int8  # or tf.uint8
