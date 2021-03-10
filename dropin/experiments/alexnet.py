@@ -115,7 +115,7 @@ class AlexNet(ExperimentBase):
                                                        train_labels))
         test_ds = tf.data.Dataset.from_tensor_slices((test_images,
                                                       test_labels))
-        validation_ds = tf.data.Dataset.from_tensor_slices((model.dropin.augment_data(validation_images),
+        validation_ds = tf.data.Dataset.from_tensor_slices((validation_images,
                                                             validation_labels))
 
         train_ds_size = tf.data.experimental.cardinality(train_ds).numpy()
@@ -144,11 +144,17 @@ class AlexNet(ExperimentBase):
                          .batch(batch_size=8, drop_remainder=True))
 
         def training_ds():
-            for batch in train_ds:
-                yield model.dropin.augment_data(batch)
-        model.fit(training_ds,
+            for _ in range(self.epochs):
+                for data, label in train_ds:
+                    yield model.dropin.augment_data(data), label
+
+        def validation_ds_generator():
+            for _ in range(self.epochs):
+                for data, label in validation_ds:
+                    yield model.dropin.augment_data(data), label
+        model.fit(training_ds(),
                   epochs=self.training_epochs,
-                  validation_data=validation_ds,
+                  validation_data=validation_ds_generator(),
                   validation_freq=1, callbacks=[
                 tf.keras.callbacks.ModelCheckpoint(
                     filepath=self.get_checkpoint_filepath(variant='' if not dropin else 'dropin'),
