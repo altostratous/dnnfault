@@ -144,14 +144,12 @@ class AlexNet(ExperimentBase):
                          .batch(batch_size=8, drop_remainder=True))
 
         def training_ds():
-            for _ in range(self.epochs):
-                for data, label in train_ds:
-                    yield data_augmentor(data), label
+            for data, label in train_ds:
+                yield data_augmentor(data), label
 
         def validation_ds_generator():
-            for _ in range(self.epochs):
-                for data, label in validation_ds:
-                    yield data_augmentor(data), label
+            for data, label in validation_ds:
+                yield data_augmentor(data), label
         model.fit(training_ds(),
                   epochs=self.training_epochs,
                   validation_data=validation_ds_generator(),
