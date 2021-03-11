@@ -5,6 +5,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from tensorflow import keras
 from tensorflow.python.keras.metrics import top_k_categorical_accuracy
+from tensorflow.python.keras.utils.data_utils import Sequence
 from tensorflow_model_optimization.python.core.quantization.keras.quantize import quantize_apply, \
     quantize_annotate_layer
 
@@ -96,7 +97,7 @@ class AlexNet(ExperimentBase):
         pass
 
     @staticmethod
-    def process_images(image, label):
+    def process_images(image, label=None):
         # Normalize images to have a mean of 0 and standard deviation of 1
         image = tf.image.per_image_standardization(image)
         # Resize images from 32x32 to 277x277
@@ -106,7 +107,9 @@ class AlexNet(ExperimentBase):
     def train(self, dropin=False):
         (train_images, train_labels), (test_images, test_labels) = keras.datasets.cifar10.load_data()
         validation_images, validation_labels = train_images[:5000], train_labels[:5000]
+        # validation_images, validation_labels = train_images[:500], train_labels[:500]
         train_images, train_labels = train_images[5000:], train_labels[5000:]
+        # train_images, train_labels = train_images[:500], train_labels[:500]
 
         if dropin:
             model = self.get_model(training_variant='dropin')
@@ -147,6 +150,22 @@ class AlexNet(ExperimentBase):
                          .shuffle(buffer_size=train_ds_size)
                          .batch(batch_size=batch_size, drop_remainder=True))
 
+        class CIFAR10Sequence(Sequence):
+
+            def __init__(self, x_set, y_set, batch_size, processor):
+                self.x, self.y = x_set, y_set
+                self.batch_size = batch_size
+                self.processor = processor
+
+            def __len__(self):
+                return int(np.ceil(len(self.x) / self.batch_size))
+
+            def __getitem__(self, idx):
+                batch_x = self.x[idx * self.batch_size:(idx + 1) * self.batch_size]
+                batch_y = self.y[idx * self.batch_size:(idx + 1) * self.batch_size]
+
+                return data_augmentor(np.array([self.processor(image)[0] for image in batch_x])), np.array(batch_y)
+
         def training_ds():
             for _ in range(self.epochs):
                 for data, label in train_ds:
@@ -157,13 +176,11 @@ class AlexNet(ExperimentBase):
                 for data, label in validation_ds:
                     yield data_augmentor(data), label
 
-        model.fit_generator(training_ds(),
-                            epochs=self.training_epochs,
-                            validation_steps=int(validation_ds_size / batch_size) - 1,
-                            steps_per_epoch=int(train_ds_size / batch_size) - 1,
-                            validation_data=validation_ds_generator(),
-                            validation_freq=1, callbacks=[
-                tf.keras.callbacks.ModelCheckpoint(
+        model.fit(CIFAR10Sequence(train_images, train_labels, batch_size, self.process_images),
+                  epochs=self.training_epochs,
+                  validation_data=CIFAR10Sequence(validation_images, validation_labels, batch_size,
+                                                  self.process_images),
+                  validation_freq=1, callbacks=[tf.keras.callbacks.ModelCheckpoint(
                     filepath=self.get_checkpoint_filepath(variant='' if not dropin else 'dropin'),
                     save_weights_only=True,
                     monitor='val_accuracy',

@@ -56,9 +56,9 @@ class Dropin:
         weights = [np.prod([d for d in i.shape if d is not None])
                    for i in self.perturbation_inputs]
         weights_sum = sum(weights)
-        probabilities = [w / weights_sum for w in weights]
+        probabilities = [w / weights_sum / 2 for w in weights] + [1 / 2]
 
-        perturbation_index = np.random.choice(len(self.perturbation_inputs),
+        perturbation_index = np.random.choice(len(self.perturbation_inputs) + 1,
                                               p=probabilities)
         for i, perturbation_input in enumerate(self.perturbation_inputs):
             if i == perturbation_index:
