@@ -1,5 +1,6 @@
 slurm-*.out
 token.pickle
+credentials.json
 tmp/
 # Byte-compiled / optimized / DLL files
 __pycache__/
