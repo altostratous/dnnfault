@@ -136,7 +136,7 @@ class AlexNet(ExperimentBase):
         else:
             data_augmentor = model.dropin.augment_zero
 
-        batch_size = 8
+        batch_size = 16
         train_ds = (train_ds
                     .map(self.process_images)
                     .shuffle(buffer_size=train_ds_size)
@@ -164,7 +164,7 @@ class AlexNet(ExperimentBase):
                 batch_x = self.x[idx * self.batch_size:(idx + 1) * self.batch_size]
                 batch_y = self.y[idx * self.batch_size:(idx + 1) * self.batch_size]
 
-                return data_augmentor(np.array([self.processor(image)[0] for image in batch_x])), np.array(batch_y)
+                return data_augmentor(self.processor(batch_x)[0]), batch_y
 
         def training_ds():
             for _ in range(self.epochs):
