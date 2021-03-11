@@ -39,7 +39,7 @@ class Dropin:
     def augment_model(self, model: Model):
         x = model.input
         self.model_input = model.input
-        for layer in model.layers:
+        for layer in model.layers[:-1]:
             if re.match(self.regex, layer.name):
                 original_output = layer(x)
                 perturbation_input = Input(
@@ -49,6 +49,7 @@ class Dropin:
                 self.perturbation_inputs.append(perturbation_input)
             else:
                 x = layer(x)
+        x = model.layers[-1](x)
         return Model(inputs=[model.inputs] + self.perturbation_inputs, outputs=x)
 
     def augment_data(self, data, label=None):

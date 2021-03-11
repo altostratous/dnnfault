@@ -117,38 +117,12 @@ class AlexNet(ExperimentBase):
             model = self.get_model()
         self.compile_model(model)
 
-        train_ds = tf.data.Dataset.from_tensor_slices((train_images,
-                                                       train_labels))
-        test_ds = tf.data.Dataset.from_tensor_slices((test_images,
-                                                      test_labels))
-        validation_ds = tf.data.Dataset.from_tensor_slices((validation_images,
-                                                            validation_labels))
-
-        train_ds_size = tf.data.experimental.cardinality(train_ds).numpy()
-        test_ds_size = tf.data.experimental.cardinality(test_ds).numpy()
-        validation_ds_size = tf.data.experimental.cardinality(validation_ds).numpy()
-        print("Training data size:", train_ds_size)
-        print("Test data size:", test_ds_size)
-        print("Validation data size:", validation_ds_size)
-
         if dropin:
             data_augmentor = model.dropin.augment_data
         else:
             data_augmentor = model.dropin.augment_zero
 
         batch_size = 16
-        train_ds = (train_ds
-                    .map(self.process_images)
-                    .shuffle(buffer_size=train_ds_size)
-                    .batch(batch_size=batch_size, drop_remainder=True))
-        test_ds = (test_ds
-                   .map(self.process_images)
-                   .shuffle(buffer_size=train_ds_size)
-                   .batch(batch_size=batch_size, drop_remainder=True))
-        validation_ds = (validation_ds
-                         .map(self.process_images)
-                         .shuffle(buffer_size=train_ds_size)
-                         .batch(batch_size=batch_size, drop_remainder=True))
 
         class CIFAR10Sequence(Sequence):
 
@@ -165,16 +139,6 @@ class AlexNet(ExperimentBase):
                 batch_y = self.y[idx * self.batch_size:(idx + 1) * self.batch_size]
 
                 return data_augmentor(self.processor(batch_x)[0]), batch_y
-
-        def training_ds():
-            for _ in range(self.epochs):
-                for data, label in train_ds:
-                    yield data_augmentor(data), label
-
-        def validation_ds_generator():
-            for _ in range(self.epochs):
-                for data, label in validation_ds:
-                    yield data_augmentor(data), label
 
         model.fit(CIFAR10Sequence(train_images, train_labels, batch_size, self.process_images),
                   epochs=self.training_epochs,
