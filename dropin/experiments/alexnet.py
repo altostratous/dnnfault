@@ -8,7 +8,6 @@ from tensorflow.python.keras.metrics import top_k_categorical_accuracy
 from tensorflow.python.keras.utils.data_utils import Sequence
 from tensorflow_model_optimization.python.core.quantization.keras.quantize import quantize_apply, \
     quantize_annotate_layer
-
 from base.experiments import ExperimentBase
 from dropin.utils import Dropin
 
@@ -105,6 +104,7 @@ class AlexNet(ExperimentBase):
         return image, label
 
     def train(self, dropin=False):
+        batch_size = 16
         (train_images, train_labels), (test_images, test_labels) = keras.datasets.cifar10.load_data()
         validation_images, validation_labels = train_images[:5000], train_labels[:5000]
         # validation_images, validation_labels = train_images[:500], train_labels[:500]
@@ -122,8 +122,6 @@ class AlexNet(ExperimentBase):
         else:
             data_augmentor = model.dropin.augment_zero
 
-        batch_size = 16
-
         class CIFAR10Sequence(Sequence):
 
             def __init__(self, x_set, y_set, batch_size, processor):
@@ -140,6 +138,7 @@ class AlexNet(ExperimentBase):
 
                 return data_augmentor(self.processor(batch_x)[0]), batch_y
 
+        model.run_eagerly = True
         model.fit(CIFAR10Sequence(train_images, train_labels, batch_size, self.process_images),
                   epochs=self.training_epochs,
                   validation_data=CIFAR10Sequence(validation_images, validation_labels, batch_size,
