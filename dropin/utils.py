@@ -15,10 +15,11 @@ logger = logging.getLogger(__name__)
 class Dropin:
     regex = 'conv2d.*|dense.*'
 
-    def __init__(self, model, representative_dataset=None, a=None, b=None) -> None:
+    def __init__(self, model, representative_dataset=None, a=None, b=None, r=0.5) -> None:
         super().__init__()
         self.model = model
         self.representative_dataset = representative_dataset
+        self.r = r
 
         if self.representative_dataset:
             def profiler_layer_factory(insert_layer_name):
@@ -57,7 +58,7 @@ class Dropin:
         weights = [np.prod([d for d in i.shape if d is not None])
                    for i in self.perturbation_inputs]
         weights_sum = sum(weights)
-        probabilities = [w / weights_sum / 2 for w in weights] + [1 / 2]
+        probabilities = [w / weights_sum * self.r for w in weights] + [1 - self.r]
 
         perturbation_index = np.random.choice(len(self.perturbation_inputs) + 1,
                                               p=probabilities)

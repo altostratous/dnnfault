@@ -58,7 +58,7 @@ class AlexNet(ExperimentBase):
             model.load_weights(self.get_checkpoint_filepath(variant=training_variant))
         except Exception as e:
             logger.error(str(e))
-        dropin = Dropin(model, a=0, b=257)
+        dropin = Dropin(model, a=0, b=257, r=0.1)
         model = dropin.augment_model(model)
         setattr(model, 'dropin', dropin)
         self._model = model
@@ -118,16 +118,17 @@ class AlexNet(ExperimentBase):
         self.compile_model(model)
 
         if dropin:
-            data_augmentor = model.dropin.augment_data
+            data_augmenter = model.dropin.augment_data
         else:
-            data_augmentor = model.dropin.augment_zero
+            data_augmenter = model.dropin.augment_zero
 
         class CIFAR10Sequence(Sequence):
 
-            def __init__(self, x_set, y_set, batch_size, processor):
+            def __init__(self, x_set, y_set, batch_size, processor, augmenter=data_augmenter):
                 self.x, self.y = x_set, y_set
                 self.batch_size = batch_size
                 self.processor = processor
+                self.augmenter = augmenter
 
             def __len__(self):
                 return int(np.ceil(len(self.x) / self.batch_size))
@@ -136,13 +137,13 @@ class AlexNet(ExperimentBase):
                 batch_x = self.x[idx * self.batch_size:(idx + 1) * self.batch_size]
                 batch_y = self.y[idx * self.batch_size:(idx + 1) * self.batch_size]
 
-                return data_augmentor(self.processor(batch_x)[0]), batch_y
+                return self.augmenter(self.processor(batch_x)[0]), batch_y
 
         model.run_eagerly = True
         model.fit(CIFAR10Sequence(train_images, train_labels, batch_size, self.process_images),
                   epochs=self.training_epochs,
                   validation_data=CIFAR10Sequence(validation_images, validation_labels, batch_size,
-                                                  self.process_images),
+                                                  self.process_images, augmenter=model.dropin.augment_zero),
                   validation_freq=1, callbacks=[tf.keras.callbacks.ModelCheckpoint(
                     filepath=self.get_checkpoint_filepath(variant='' if not dropin else 'dropin'),
                     save_weights_only=True,
