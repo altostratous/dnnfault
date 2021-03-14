@@ -1,6 +1,8 @@
 import json
 import re
 
+import tensorflow as tf
+
 import pickle
 import random
 from abc import ABCMeta
@@ -143,13 +145,13 @@ class ClipperVSRangerBase(ExperimentBase, metaclass=ABCMeta):
     def layer_sdc(self):
 
         subplots = {}
+        m = self.get_model()
+        variable_names = {}
+        for i, t in enumerate(m.trainable_variables):
+            if 'conv' in t.name and 'kernel' in t.name:
+                variable_names[i] = re.match(r'.*?_?(\d+)_conv', t.name).groups()[0] + '-' + str(int(tf.size(t)))
         for amount in (1, 10, 100):
             y = []
-            m = self.get_model()
-            variable_names = {}
-            for i, t in enumerate(m.trainable_variables):
-                if 'conv' in t.name and 'kernel' in t.name:
-                    variable_names[i] = t.name
             accumulation = defaultdict(lambda: defaultdict(list))
             for evaluation in self.evaluations:
                 if evaluation['config']['Amount'] != amount:
@@ -177,7 +179,7 @@ class ClipperVSRangerBase(ExperimentBase, metaclass=ABCMeta):
                     y_.append((p, self.z * np.sqrt(p * (1 - p) / n)))
                 y.append(list(zip(*y_)))
             subplots['Amount={}'.format(amount)] = y
-        return [k for k in layer_keys], subplots
+        return ['-'.join([str(k), variable_names[k]]) for k in layer_keys], subplots
 
     def class_sdc(self):
         subplots = {}

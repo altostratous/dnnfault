@@ -338,3 +338,6 @@ class ExperimentBase:
         self.compile_model(model)
         dataset = self.get_dataset()
         model.fit(dataset)
+
+    def summary(self):
+        self.get_model().summary()

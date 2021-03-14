@@ -18,7 +18,7 @@ class AlexNet(ExperimentBase):
     checkpoint_filepath = 'tmp/weights/alexnet/alexnet'
     training_epochs = 250
     variants = ExperimentBase.variants + (
-        # 'dropin',
+        'dropin',
     )
     default_config = {
         'mode': 'evaluation'
@@ -83,7 +83,7 @@ class AlexNet(ExperimentBase):
         (train_images, train_labels), (test_images, test_labels) = keras.datasets.cifar10.load_data()
         test_ds = tf.data.Dataset.from_tensor_slices((test_images, test_labels))
         s = tf.data.Dataset.cardinality(test_ds)
-        test_ds = test_ds.shuffle(buffer_size=s).take(256).batch(256).map(self.process_images)
+        test_ds = test_ds.shuffle(buffer_size=s).batch(256).map(self.process_images)
         return test_ds
 
     def compile_model(self, model):
@@ -205,13 +205,8 @@ class AlexNet(ExperimentBase):
         tflite_quant_model = converter.convert()
         logger.info('Model quantized for tensorflow lite successfully')
 
-    def summary(self):
-        self.get_model().summary()
-
     def train_with_dropin(self):
         self.train(dropin=True)
 
     def get_variant_dropin(self, model, name):
-        model = self.copy_model(model, name=name)
-        model.set_weights(self.get_checkpoint_filepath('dropin'))
-        return model
+        return self.get_model(name=name, training_variant='dropin')

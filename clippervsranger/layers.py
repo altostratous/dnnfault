@@ -14,7 +14,7 @@ class ProfileLayer(Layer):
             maximum = np.max(matrix)
             minimum = np.min(matrix)
             self.profile[self.name].append([maximum, minimum])
-            matrix = np.count_nonzero(np.maximum(0, matrix - minimum), axis=len(matrix.shape) - 1)
+            matrix = np.count_nonzero(np.maximum(0, matrix - (maximum + minimum) / 2), axis=len(matrix.shape) - 1)
             matrix = np.average(matrix)
             self.activated_channels[self.name].append(matrix)
         return super().call(inputs, **kwargs)
