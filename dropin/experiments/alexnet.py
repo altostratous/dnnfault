@@ -1,5 +1,4 @@
 import logging
-
 import tensorflow as tf
 import numpy as np
 from matplotlib import pyplot as plt
@@ -23,6 +22,7 @@ class AlexNet(ExperimentBase):
     default_config = {
         'mode': 'evaluation'
     }
+    model_name = 'AlexNet'
 
     def __init__(self, args):
         super().__init__(args)
@@ -91,6 +91,7 @@ class AlexNet(ExperimentBase):
             loss='sparse_categorical_crossentropy',
             optimizer=tf.optimizers.SGD(lr=0.001),
             metrics=['accuracy'])
+        model.run_eagerly = True
 
     def get_first_base_evaluation(self):
         pass
@@ -210,3 +211,14 @@ class AlexNet(ExperimentBase):
 
     def get_variant_dropin(self, model, name):
         return self.get_model(name=name, training_variant='dropin')
+
+    def get_plots(self):
+        plots = {
+            'vulnerable': (self.model_name + ' SDC', 'accuracy', 'vulnerable', 'hist'),
+        }
+        return plots
+
+    def vulnerable(self):
+        plt.hist([np.average(e['evaluation']['acc']) for e in self.evaluations if e['variant_key'] == 'none'])
+        plt.hist([np.average(e['evaluation']['acc']) for e in self.evaluations if e['variant_key'] == 'dropin'])
+        plt.show()

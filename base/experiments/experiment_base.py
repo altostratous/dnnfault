@@ -193,8 +193,10 @@ class ExperimentBase:
         self.load_evaluations()
         plot_key = self.args.plot_key
         title, x_title, y_title, pyplot_func = self.get_plots()[plot_key]
-        x, y = getattr(self, plot_key)()
-        self.draw_plot(x, y, title, x_title, y_title, pyplot_func)
+        plot_result = getattr(self, plot_key)()
+        if plot_result:
+            x, y = plot_result
+            self.draw_plot(x, y, title, x_title, y_title, pyplot_func)
 
     def draw_plot(self, x, sub_plots, title, x_title, y_title, pyplot_func):
         fig, axe = plt.subplots(len(sub_plots), 1, figsize=(10, 8), sharex='row', sharey='row')
