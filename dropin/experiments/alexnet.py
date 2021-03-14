@@ -70,11 +70,13 @@ class AlexNet(ExperimentBase):
     def evaluate(self, model, x, y_true, config):
         y_pred = model.predict(x=model.dropin.augment_data(x, config),
                                batch_size=64)
-        return {
+        evaluation = {
             'acc': top_k_categorical_accuracy(y_true, y_pred, k=1),
             'y_true': np.argmax(y_true, axis=1),
             'y_pred': np.argsort(y_pred, axis=1).T[-5:].T
         }
+        print(np.average(evaluation['acc']))
+        return evaluation
 
     def get_faulty_model(self, config, name=None):
         return self.get_model(name=name)
@@ -83,7 +85,7 @@ class AlexNet(ExperimentBase):
         (train_images, train_labels), (test_images, test_labels) = keras.datasets.cifar10.load_data()
         test_ds = tf.data.Dataset.from_tensor_slices((test_images, test_labels))
         s = tf.data.Dataset.cardinality(test_ds)
-        test_ds = test_ds.shuffle(buffer_size=s).batch(256).map(self.process_images)
+        test_ds = test_ds.shuffle(buffer_size=s).batch(len(test_images)).map(self.process_images)
         return test_ds
 
     def compile_model(self, model):
