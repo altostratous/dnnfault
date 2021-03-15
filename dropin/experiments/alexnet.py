@@ -58,10 +58,16 @@ class AlexNet(ExperimentBase):
         return model
 
     def get_configs(self):
-        return [{}]
+        return [{'mode': 'no_fault'}, {'mode': 'evaluation'}]
 
     def evaluate(self, model, x, y_true, config):
-        y_pred = model.predict(x=model.dropin.augment_zero(x, config),
+        if config['mode'] == 'evaluation':
+            augmented_data = model.dropin.augment_data(x)
+        elif config['mode'] == 'no_fault':
+            augmented_data = model.dropin.augment_zero(x)
+        else:
+            assert False
+        y_pred = model.predict(x=augmented_data,
                                batch_size=64)
         evaluation = {
             'acc': top_k_categorical_accuracy(y_true, y_pred, k=1),
