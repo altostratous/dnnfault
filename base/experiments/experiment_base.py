@@ -104,11 +104,6 @@ class ExperimentBase:
                         self.save_evaluation_chunk(epoch, config, config_id, variant_key, evaluation_result_chunk,
                                                    batch_id=batch_id)
                         gc.collect()
-                        logger.debug(
-                            'Resident models {}'.format(', '.join(
-                                [o.name for o in gc.get_objects() if isinstance(o, Model)]
-                            ))
-                        )
                         counter += 1
                     K.clear_session()
 
