@@ -148,6 +148,8 @@ class AlexNet(ExperimentBase):
                     save_best_only=True)])
 
     def get_checkpoint_filepath(self, variant=''):
+        if variant == 'none':
+            variant = ''
         return self.checkpoint_filepath + ('_' if variant else '') + variant
 
     def quantize(self):
