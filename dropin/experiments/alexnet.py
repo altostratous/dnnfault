@@ -24,13 +24,7 @@ class AlexNet(ExperimentBase):
     }
     model_name = 'AlexNet'
 
-    def __init__(self, args):
-        super().__init__(args)
-        self._model = None
-
     def get_model(self, name=None, training_variant='dropin'):
-        if self._model:
-            return self._model
         model = keras.models.Sequential([
             keras.layers.Layer(input_shape=(227, 227, 3)),
             keras.layers.Conv2D(filters=96, kernel_size=(11, 11), strides=(4, 4), activation='relu',
@@ -61,7 +55,6 @@ class AlexNet(ExperimentBase):
         dropin = Dropin(model, a=0, b=257, r=0.1)
         model = dropin.augment_model(model)
         setattr(model, 'dropin', dropin)
-        self._model = model
         return model
 
     def get_configs(self):
@@ -213,6 +206,9 @@ class AlexNet(ExperimentBase):
 
     def get_variant_dropin(self, model, name):
         return self.get_model(name=name, training_variant='dropin')
+
+    def get_variant_none(self, model, name):
+        return self.get_model(name=name, training_variant='none')
 
     def get_plots(self):
         plots = {
