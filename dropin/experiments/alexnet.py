@@ -75,7 +75,7 @@ class AlexNet(ExperimentBase):
             'y_true': np.argmax(y_true, axis=1),
             'y_pred': np.argsort(y_pred, axis=1).T[-5:].T
         }
-        print(np.average(evaluation['acc']))
+        logger.info('Evaluation Accuracy: {}'.format(np.average(evaluation['acc'])))
         return evaluation
 
     def get_faulty_model(self, config, name=None):
