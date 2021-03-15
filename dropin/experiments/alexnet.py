@@ -68,7 +68,7 @@ class AlexNet(ExperimentBase):
         return [{}]
 
     def evaluate(self, model, x, y_true, config):
-        y_pred = model.predict(x=model.dropin.augment_data(x, config),
+        y_pred = model.predict(x=model.dropin.augment_zero(x, config),
                                batch_size=64)
         evaluation = {
             'acc': top_k_categorical_accuracy(y_true, y_pred, k=1),
