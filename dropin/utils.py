@@ -51,7 +51,7 @@ class Dropin:
             else:
                 x = layer(x)
         x = model.layers[-1](x)
-        return Model(inputs=[model.inputs] + self.perturbation_inputs, outputs=x)
+        return Model(inputs=[model.inputs] + self.perturbation_inputs, outputs=x, name=model.name)
 
     def augment_data(self, data, label=None):
         result = [data]

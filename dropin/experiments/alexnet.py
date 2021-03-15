@@ -47,7 +47,7 @@ class AlexNet(ExperimentBase):
             keras.layers.Dense(4096, activation='relu'),
             keras.layers.Dropout(0.5),
             keras.layers.Dense(10, activation='softmax')
-        ])
+        ], name=name)
         try:
             model.load_weights(self.get_checkpoint_filepath(variant=training_variant))
         except Exception as e:
