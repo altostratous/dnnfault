@@ -85,7 +85,7 @@ class AlexNet(ExperimentBase):
         (train_images, train_labels), (test_images, test_labels) = keras.datasets.cifar10.load_data()
         test_ds = tf.data.Dataset.from_tensor_slices((test_images, test_labels))
         s = tf.data.Dataset.cardinality(test_ds)
-        test_ds = test_ds.shuffle(buffer_size=s).batch(len(test_images)).map(self.process_images)
+        test_ds = test_ds.shuffle(buffer_size=s).batch(256).map(self.process_images)
         return test_ds
 
     def compile_model(self, model):

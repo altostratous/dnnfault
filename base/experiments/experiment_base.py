@@ -67,7 +67,6 @@ class ExperimentBase:
 
     def run(self):
         dataset = self.get_dataset()
-        x, y_true = next(iter(dataset))
         counter = 0
         for epoch in range(self.epochs):
             logger.info('Started epoch {}'.format(epoch))
@@ -97,15 +96,16 @@ class ExperimentBase:
                                                                                 ))
                     logger.info('Evaluating ...')
                     self.compile_model(model)
-                    evaluation_result_chunk = self.evaluate(model, x, y_true, config)
-                    logger.info('Saving evaluation ...')
-                    self.save_evaluation_chunk(epoch, config, config_id, variant_key, evaluation_result_chunk)
-                    gc.collect()
-                    logger.debug(
-                        'Resident models {}'.format(', '.join(
-                            [o.name for o in gc.get_objects() if isinstance(o, Model)]
-                        ))
-                    )
+                    for x, y_true in dataset:
+                        evaluation_result_chunk = self.evaluate(model, x, y_true, config)
+                        logger.info('Saving evaluation ...')
+                        self.save_evaluation_chunk(epoch, config, config_id, variant_key, evaluation_result_chunk)
+                        gc.collect()
+                        logger.debug(
+                            'Resident models {}'.format(', '.join(
+                                [o.name for o in gc.get_objects() if isinstance(o, Model)]
+                            ))
+                        )
                     counter += 1
                 K.clear_session()
 
