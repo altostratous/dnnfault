@@ -217,6 +217,6 @@ class AlexNet(ExperimentBase):
         return plots
 
     def vulnerable(self):
-        plt.hist([np.average(e['evaluation']['acc']) for e in self.evaluations if e['variant_key'] == 'none'])
+        plt.hist([np.average(e['evaluation']['y_true'] == e['evaluation']['y_pred'].T[-1:].T) for e in self.evaluations if e['variant_key'] == 'dropin'])
         plt.hist([np.average(e['evaluation']['acc']) for e in self.evaluations if e['variant_key'] == 'dropin'])
         plt.show()

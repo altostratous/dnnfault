@@ -70,44 +70,47 @@ class ExperimentBase:
         counter = 0
         for epoch in range(self.epochs):
             logger.info('Started epoch {}'.format(epoch))
-            for config_id, config_patch in enumerate(self.get_configs()):
-                if len(self.evaluations) >= counter + len(self.get_variants()):
-                    counter += len(self.get_variants())
-                    logger.info('Skipping already done evaluation {} ...'.format(counter))
-                    continue
-                config = self.get_default_config()
-                config.update(config_patch)
-                logger.info('Injecting fault with config {}'.format(config))
-                faulty_model = self.get_faulty_model(config, name='faulty_{}_{}'.format(
-                    epoch,
-                    config_id
-                ))
-                for variant_key in self.get_variants():
-                    if len(self.evaluations) > counter:
-                        logger.info('Skipping already done variant {} ...'.format(variant_key))
-                        counter += 1
+            for batch_id, batch in enumerate(dataset):
+                logger.info('Started batch {}'.format(batch_id))
+                x, y_true = batch
+                for config_id, config_patch in enumerate(self.get_configs()):
+                    if len(self.evaluations) >= counter + len(self.get_variants()):
+                        counter += len(self.get_variants())
+                        logger.info('Skipping already done evaluation {} ...'.format(counter))
                         continue
-                    logger.info('Creating variant {}'.format(variant_key))
-                    model = getattr(self, 'get_variant_{}'.format(variant_key))(faulty_model,
-                                                                                name='variant_{}_{}_{}'.format(
-                                                                                    epoch,
-                                                                                    config_id,
-                                                                                    variant_key
-                                                                                ))
-                    logger.info('Evaluating ...')
-                    self.compile_model(model)
-                    for x, y_true in dataset:
+                    config = self.get_default_config()
+                    config.update(config_patch)
+                    logger.info('Injecting fault with config {}'.format(config))
+                    faulty_model = self.get_faulty_model(config, name='faulty_{}_{}'.format(
+                        epoch,
+                        config_id
+                    ))
+                    for variant_key in self.get_variants():
+                        if len(self.evaluations) > counter:
+                            logger.info('Skipping already done variant {} ...'.format(variant_key))
+                            counter += 1
+                            continue
+                        logger.info('Creating variant {}'.format(variant_key))
+                        model = getattr(self, 'get_variant_{}'.format(variant_key))(faulty_model,
+                                                                                    name='variant_{}_{}_{}'.format(
+                                                                                        epoch,
+                                                                                        config_id,
+                                                                                        variant_key
+                                                                                    ))
+                        logger.info('Evaluating ...')
+                        self.compile_model(model)
                         evaluation_result_chunk = self.evaluate(model, x, y_true, config)
                         logger.info('Saving evaluation ...')
-                        self.save_evaluation_chunk(epoch, config, config_id, variant_key, evaluation_result_chunk)
+                        self.save_evaluation_chunk(epoch, config, config_id, variant_key, evaluation_result_chunk,
+                                                   batch_id=batch_id)
                         gc.collect()
                         logger.debug(
                             'Resident models {}'.format(', '.join(
                                 [o.name for o in gc.get_objects() if isinstance(o, Model)]
                             ))
                         )
-                    counter += 1
-                K.clear_session()
+                        counter += 1
+                    K.clear_session()
 
     def copy_model(self, faulty_model, name=None):
         model = self.get_raw_model(name=name)
@@ -142,14 +145,15 @@ class ExperimentBase:
     def get_default_config(self):
         return self.default_config.copy()
 
-    def save_evaluation_chunk(self, epoch, config, config_id, variant_key, evaluation_result_chunk):
-        log_object = self.get_log_file_object(config, epoch, evaluation_result_chunk, variant_key)
+    def save_evaluation_chunk(self, epoch, config, config_id, variant_key, evaluation_result_chunk, batch_id=0):
+        log_object = self.get_log_file_object(config, epoch, evaluation_result_chunk, variant_key, batch_id=batch_id)
         log_file_name = self.get_log_file_name(epoch, config_id, variant_key)
         self.save_log_object(log_object, log_file_name)
 
-    def get_log_file_object(self, config, epoch, evaluation_result_chunk, variant_key):
+    def get_log_file_object(self, config, epoch, evaluation_result_chunk, variant_key, batch_id=0):
         log_object = {
             'epoch': epoch,
+            'batch_id': batch_id,
             'variant_key': variant_key,
             'config': config,
             'evaluation': evaluation_result_chunk
