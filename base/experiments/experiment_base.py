@@ -1,3 +1,5 @@
+import code
+
 import gc
 import logging
 import os
@@ -349,3 +351,6 @@ class ExperimentBase:
 
     def get_legend(self, variant, sub_plot, subplots_length):
         return variant
+
+    def shell(self):
+        code.interact(local=locals())
