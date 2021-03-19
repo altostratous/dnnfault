@@ -3,7 +3,7 @@ import tensorflow as tf
 import numpy as np
 from matplotlib import pyplot as plt
 from tensorflow import keras
-from tensorflow.python.keras.metrics import top_k_categorical_accuracy
+from tensorflow.python.keras.metrics import sparse_top_k_categorical_accuracy
 from tensorflow.python.keras.utils.data_utils import Sequence
 from tensorflow_model_optimization.python.core.quantization.keras.quantize import quantize_apply, \
     quantize_annotate_layer
@@ -70,11 +70,11 @@ class AlexNet(ExperimentBase):
         y_pred = model.predict(x=augmented_data,
                                batch_size=64)
         evaluation = {
-            'acc': top_k_categorical_accuracy(y_true, y_pred, k=1),
-            'y_true': np.argmax(y_true, axis=1),
+            'acc': sparse_top_k_categorical_accuracy(y_true, y_pred, k=1),
+            'y_true': y_true,
             'y_pred': np.argsort(y_pred, axis=1).T[-5:].T
         }
-        logger.info('Evaluation Accuracy: {}'.format(np.average(np.argsort(y_pred, axis=1).T[-1:].T == y_pred)))
+        logger.info('Evaluation Accuracy: {}'.format(np.average(np.argsort(y_pred, axis=1).T[-1:].T == y_true)))
         return evaluation
 
     def get_faulty_model(self, config, name=None):
