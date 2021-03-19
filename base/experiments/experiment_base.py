@@ -206,11 +206,15 @@ class ExperimentBase:
                 plt.setp(ax.get_xticklabels(), visible=False)
             for y_, variant in zip(y, self.get_variants()):
                 y_value, error = y_
-                getattr(self, pyplot_func)(x, y_value, yerr=error, label=variant,
+                getattr(self, pyplot_func)(x, y_value, yerr=error, label=self.get_legend(variant, sub_plot,
+                                                                                         len(sub_plots)),
                                            label_index=self.get_variants().index(variant))
             plt.legend()
             plt.title(title + ' ({})'.format(condition) if condition else '')
-            plt.ylabel(y_title)
+            if isinstance(y_title, tuple):
+                plt.ylabel(y_title[sub_plot])
+            else:
+                plt.ylabel(y_title)
             if isinstance(x[0], str):
                 ax.set_xticks(list(range(len(x))))
             else:
@@ -342,3 +346,6 @@ class ExperimentBase:
 
     def summary(self):
         self.get_model().summary()
+
+    def get_legend(self, variant, sub_plot, subplots_length):
+        return variant

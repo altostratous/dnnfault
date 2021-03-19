@@ -30,6 +30,7 @@ parser.add_argument('--tag', type=str, default='')
 parser.add_argument('--shard', type=str, default='')
 parser.add_argument('--plot_layer_type', type=str, default='kernel')
 parser.add_argument('--pyplot_out', type=str, default='')
+parser.add_argument('--filter', type=str, default='')
 
 args = parser.parse_args()
 experiment = experiments_map[args.experiment](args)

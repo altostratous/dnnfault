@@ -44,9 +44,10 @@ class ClipperVSRangerBase(ExperimentBase, metaclass=ABCMeta):
         plots = {
             'sdc': (self.model_name + ' SDC', 'bit-flips', 'sdc', 'errorbar'),
             'class_sdc': (self.model_name + ' Class-wise SDC', 'class index', 'sdc', 'bar'),
-            'sorted_class_sdc': (self.model_name + ' Class-wise SDC', 'class index', 'sdc', 'bar'),
+            'sorted_class_sdc': (self.model_name + ' Class-wise SDC', 'class index', ('sdc', 'accuracy'), 'bar'),
             'layer_sdc': (self.model_name + ' Layer-wise SDC', 'layer index', 'sdc', 'errorbar'),
-            'channel_redundancy': (self.model_name + ' Channel Redundancy', 'class index', 'redundancy', 'bar'),
+            'channel_redundancy': (self.model_name + ' Channel Redundancy (fired channels)', 'layers', 'avg fired channels (> (min + max) / 2)', 'bar'),
+            'accuracy_sdc': (self.model_name + ' Channel Redundancy', 'class index', 'redundancy', 'bar'),
         }
         return plots
 
@@ -220,9 +221,43 @@ class ClipperVSRangerBase(ExperimentBase, metaclass=ABCMeta):
         return [titles[c] for c in classes], subplots
 
     def sorted_class_sdc(self):
+        good_classes, population, subplots, titles, total_population = self.get_sorted_class_sdc_info()
+        result = [titles[c] for c in good_classes], {
+            **{
+                key: [
+                    [[variant[0][c] for c in good_classes],
+                     [variant[1][c] for c in good_classes]]
+                    for variant in y] for key, y in subplots.items() if key == 'Amount=10'
+            },
+            'Accuracy': [[
+                [population[c] / total_population[c] for c in good_classes],
+                [0 for _ in good_classes],
+            ]]
+        }
+        return result
+
+    def accuracy_sdc(self):
+        good_classes, population, subplots, titles, total_population = self.get_sorted_class_sdc_info(cut_off=500)
+        if self.args.filter:
+            filters = dict(f.split(':') for f in self.args.filter.split(','))
+            x = [subplots['Amount=10'][self.get_variants().index(filters['variant'])][0][c] for c in good_classes]
+        else:
+            x = [subplots['Amount=10'][self.get_variants().index('clipper')][0][c] for c in good_classes]
+        y = [population[c] / total_population[c] for c in good_classes]
+        plt.scatter(x, y)
+        z = np.polyfit(x, y, 1)
+        p = np.poly1d(z)
+        plt.plot(x, p(x), "r")
+        plt.xlabel('SDC (Amount=10)')
+        plt.ylabel('Accuracy')
+        plt.title('Accuracy-SDC correlation ({}) for 168 classes'.format(np.corrcoef(x, y)[0][1]))
+        plt.show()
+
+    def get_sorted_class_sdc_info(self, cut_off=10):
         subplots = {}
         good_classes = set()
         population = {}
+        total_population = {}
         for amount in (1, 10, 100):
             y = []
             classes = set()
@@ -230,9 +265,11 @@ class ClipperVSRangerBase(ExperimentBase, metaclass=ABCMeta):
             for evaluation in self.evaluations:
                 if evaluation['config']['Amount'] != amount:
                     continue
-                accumulation[(evaluation['epoch'], evaluation['config']['Artifact'])][evaluation['variant_key']].append(evaluation)
+                accumulation[(evaluation['epoch'], evaluation['config']['Artifact'])][evaluation['variant_key']].append(
+                    evaluation)
             class_sdc = defaultdict(lambda: defaultdict(int))
             class_base_corrects = defaultdict(lambda: defaultdict(int))
+            class_base_population = defaultdict(lambda: defaultdict(int))
             for experiment in accumulation.values():
                 base_line = experiment['no_fault'][0]['evaluation']['y_pred']
                 oracle = experiment['no_fault'][0]['evaluation']['y_true']
@@ -241,6 +278,7 @@ class ClipperVSRangerBase(ExperimentBase, metaclass=ABCMeta):
                         for i, sample_pred in enumerate(base_line):
                             sample_class = oracle[i]
                             classes.add(sample_class)
+                            class_base_population[variant][sample_class] += 1
                             if base_line[i][-1] != sample_class:
                                 continue
                             class_base_corrects[variant][sample_class] += 1
@@ -252,7 +290,9 @@ class ClipperVSRangerBase(ExperimentBase, metaclass=ABCMeta):
                 y_ = []
                 for c in classes:
                     n = class_base_corrects[variant][c]
+                    total = class_base_population[variant][c]
                     population[c] = n
+                    total_population[c] = total
                     wrongs = class_sdc[variant][c]
                     if not n:
                         y_.append((0, 0))
@@ -266,21 +306,10 @@ class ClipperVSRangerBase(ExperimentBase, metaclass=ABCMeta):
             _, titles = self.get_classes_info()
             subplots['Amount={}'.format(amount)] = y
         good_classes = list(sorted(good_classes))
-        good_classes = good_classes[:5] + good_classes[-5:]
-        _, good_classes = list(zip(*sorted(zip([subplots['Amount=10'][1][0][c] for c in good_classes], good_classes), reverse=True)))
-        result = [titles[c] for c in good_classes], {
-            **{
-                key: [
-                    [[variant[0][c] for c in good_classes],
-                     [variant[1][c] for c in good_classes]]
-                    for variant in y] for key, y in subplots.items()
-            },
-            'Accurate': [[
-                [population[c] for c in good_classes],
-                [0 for _ in good_classes],
-            ]]
-        }
-        return result
+        good_classes = good_classes[:cut_off] + good_classes[-cut_off:]
+        _, good_classes = list(
+            zip(*sorted(zip([subplots['Amount=10'][1][0][c] for c in good_classes], good_classes), reverse=True)))
+        return good_classes, population, subplots, titles, total_population
 
     def get_dataset(self):
         class_names, class_titles = self.get_classes_info()
@@ -377,7 +406,8 @@ class ClipperVSRangerBase(ExperimentBase, metaclass=ABCMeta):
 
     def channel_redundancy(self):
         names, titles = self.get_classes_info()
-        classes = [titles.index('diamondback'), titles.index('fig')]
+        self.variants = ('diamondback', 'wool')
+        classes = [titles.index('diamondback'), titles.index('wool')]
         class_names = [names[c] for c in classes]
         dataset = image_dataset_from_directory(
             self.get_dataset_path(),
@@ -391,6 +421,8 @@ class ClipperVSRangerBase(ExperimentBase, metaclass=ABCMeta):
         )
         classes = [0, 1]
         subplots = []
+
+        m = self.get_model()
         for c in classes:
             data = []
             subplot = [[], []]
@@ -398,7 +430,7 @@ class ClipperVSRangerBase(ExperimentBase, metaclass=ABCMeta):
                 for x_, y_ in zip(x, y):
                     if c == np.argmax(y_):
                         data.append(x_)
-            profiler_model = self.get_variant_profiler(self.get_model())
+            profiler_model = self.get_variant_profiler(m)
             self.compile_model(profiler_model)
             profiler_model.run_eagerly = True
             ProfileLayer.activated_channels.clear()
@@ -408,5 +440,11 @@ class ClipperVSRangerBase(ExperimentBase, metaclass=ABCMeta):
                 subplot[0].append(sum(r) / len(r))
                 subplot[1].append(0)
             subplots.append(subplot)
-        return [l for l, _ in ProfileLayer.activated_channels.items()], {'a': subplots}
+        return [l for l, _ in enumerate(ProfileLayer.activated_channels.items())], {'': subplots}
+
+    def get_legend(self, variant, sub_plot, sub_plots_length):
+        if sub_plot == 0:
+            return super().get_legend(variant, sub_plot, sub_plots_length)
+        else:
+            return None
 
