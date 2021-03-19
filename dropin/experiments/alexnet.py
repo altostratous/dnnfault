@@ -212,10 +212,10 @@ class AlexNet(ExperimentBase):
     def train_with_dropin(self):
         self.train(dropin=True)
 
-    def get_variant_dropin(self, model, name):
+    def get_variant_dropin(self, model, name=None):
         return self.get_model(name=name, training_variant='dropin')
 
-    def get_variant_none(self, model, name):
+    def get_variant_none(self, model, name=None):
         return self.get_model(name=name, training_variant='none')
 
     def get_plots(self):
