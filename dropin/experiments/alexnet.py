@@ -2,13 +2,13 @@ import logging
 import tensorflow as tf
 import numpy as np
 from matplotlib import pyplot as plt
+from matplotlib.ticker import PercentFormatter
 from tensorflow import keras
 from tensorflow.python.keras.metrics import sparse_top_k_categorical_accuracy
-from tensorflow.python.keras.utils.data_utils import Sequence
 from tensorflow_model_optimization.python.core.quantization.keras.quantize import quantize_apply, \
     quantize_annotate_layer
 from base.experiments import ExperimentBase
-from dropin.utils import Dropin
+from dropin.utils import Dropin, CIFAR10Sequence
 
 logger = logging.getLogger(__name__)
 
@@ -124,28 +124,12 @@ class AlexNet(ExperimentBase):
         else:
             data_augmenter = model.dropin.augment_zero
 
-        class CIFAR10Sequence(Sequence):
-
-            def __init__(self, x_set, y_set, batch_size, processor, augmenter=data_augmenter):
-                self.x, self.y = x_set, y_set
-                self.batch_size = batch_size
-                self.processor = processor
-                self.augmenter = augmenter
-
-            def __len__(self):
-                return int(np.ceil(len(self.x) / self.batch_size))
-
-            def __getitem__(self, idx):
-                batch_x = self.x[idx * self.batch_size:(idx + 1) * self.batch_size]
-                batch_y = self.y[idx * self.batch_size:(idx + 1) * self.batch_size]
-
-                return self.augmenter(self.processor(batch_x)[0]), batch_y
-
         model.run_eagerly = True
-        model.fit(CIFAR10Sequence(train_images, train_labels, batch_size, self.process_images),
+        model.fit(CIFAR10Sequence(train_images, train_labels, batch_size, self.process_images,
+                                  data_augmenter),
                   epochs=self.training_epochs,
                   validation_data=CIFAR10Sequence(validation_images, validation_labels, batch_size,
-                                                  self.process_images, augmenter=model.dropin.augment_zero),
+                                                  self.process_images, augmenter=data_augmenter),
                   validation_freq=1, callbacks=[tf.keras.callbacks.ModelCheckpoint(
                     filepath=self.get_checkpoint_filepath(variant='' if not dropin else 'dropin'),
                     save_weights_only=True,
@@ -225,6 +209,38 @@ class AlexNet(ExperimentBase):
         return plots
 
     def vulnerable(self):
-        # plt.hist([np.average(e['evaluation']['y_true'] == e['evaluation']['y_pred'].T[-1:].T) for e in self.evaluations if e['variant_key'] == 'dropin'])
-        plt.hist([np.average(e['evaluation']['y_true'] == e['evaluation']['y_pred'].T[-1:].T) for e in self.evaluations if e['variant_key'] == 'dropin' and e['config']['mode'] == 'no_fault'])
+        for variant, condition in (
+            ('none-fault', lambda e: e['variant_key'] == 'none' and e['config']['mode'] == 'evaluation'),
+            # ('none-no-fault', lambda e: e['variant_key'] == 'none' and e['config']['mode'] == 'no_fault'),
+            ('dropin-fault', lambda e: e['variant_key'] == 'dropin' and e['config']['mode'] == 'evaluation'),
+            # ('dropin-no-fault', lambda e: e['variant_key'] == 'dropin' and e['config']['mode'] == 'no_fault'),
+        ):
+            evaluation = [
+                np.average(e['evaluation']['y_true'] == e['evaluation']['y_pred'].T[-1:].T)
+                for e in self.evaluations if condition(e)]
+            probability = []
+            x = []
+            for step in range(0, 1001, 5):
+                percentage = step / 1000
+                x.append(percentage)
+                probability.append(len([i for i in evaluation if i < percentage]) / len(evaluation))
+            plt.plot(x, probability, label=variant)
+        plt.xlabel('desired degraded accuracy')
+        plt.ylabel('portion of vulnerable parameters')
+        plt.title('Parameters Vulnerable Portion VS Desired Degraded Accuracy')
+        plt.gca().yaxis.set_major_formatter(PercentFormatter(1))
+        plt.gca().xaxis.set_major_formatter(PercentFormatter(1))
+        plt.legend()
         plt.show()
+
+    def profile_dropin(self):
+        dropin_model = self.get_variant_none(None)
+        batch_size = 16
+        (train_images, train_labels), (test_images, test_labels) = keras.datasets.cifar10.load_data()
+        validation_images, validation_labels = train_images[:5000], train_labels[:5000]
+        d = Dropin(dropin_model, representative_dataset=CIFAR10Sequence(validation_images, validation_labels, batch_size,
+                                                                        self.process_images, augmenter=dropin_model.dropin.augment_zero))
+        # dropin 0.0, 972.57635
+        # none 0.0 953.709
+
+        print(d.a, d.b)

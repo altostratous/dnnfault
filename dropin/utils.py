@@ -1,15 +1,33 @@
+import logging
 import random
 import re
 
+import numpy as np
 from tensorflow.python.keras import Model, Input
+from tensorflow.python.keras.utils.data_utils import Sequence
 
 from base.utils import insert_layer_nonseq
 from dropin.layers import DropinProfiler
-import logging
-import tensorflow as tf
-import numpy as np
 
 logger = logging.getLogger(__name__)
+
+
+class CIFAR10Sequence(Sequence):
+
+    def __init__(self, x_set, y_set, batch_size, processor, augmenter=lambda x: x):
+        self.x, self.y = x_set, y_set
+        self.batch_size = batch_size
+        self.processor = processor
+        self.augmenter = augmenter
+
+    def __len__(self):
+        return int(np.ceil(len(self.x) / self.batch_size))
+
+    def __getitem__(self, idx):
+        batch_x = self.x[idx * self.batch_size:(idx + 1) * self.batch_size]
+        batch_y = self.y[idx * self.batch_size:(idx + 1) * self.batch_size]
+
+        return self.augmenter(self.processor(batch_x)[0]), batch_y
 
 
 class Dropin:
@@ -27,7 +45,7 @@ class Dropin:
 
             profiler = insert_layer_nonseq(model, self.regex, profiler_layer_factory, 'profiler')
             profiler.run_eagerly = True
-            train_data_size = tf.data.experimental.cardinality(representative_dataset).numpy()
+            train_data_size = len(representative_dataset)
             for i, data in enumerate(self.representative_dataset):
                 x, y = data
                 profiler.predict(x)

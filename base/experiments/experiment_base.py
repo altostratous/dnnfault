@@ -70,8 +70,17 @@ class ExperimentBase:
     def run(self):
         dataset = self.get_dataset()
         counter = 0
+        last_counter = 0
         for epoch in range(self.epochs):
             logger.info('Started epoch {}'.format(epoch))
+            step = counter - last_counter
+            last_counter = counter
+            if step and len(self.evaluations) - counter > step:
+                counter += step
+                logger.info('Skipping {} evaluations'.format(step))
+                continue
+            else:
+                last_counter = counter
             for batch_id, batch in enumerate(dataset):
                 logger.info('Started batch {}'.format(batch_id))
                 x, y_true = batch

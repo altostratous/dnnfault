@@ -1,6 +1,7 @@
 import re
 
 from tensorflow.python.keras import Model
+from tensorflow.python.keras.engine.input_layer import InputLayer
 
 
 def insert_layer_nonseq(model, layer_regex, insert_layer_factory,
@@ -11,7 +12,7 @@ def insert_layer_nonseq(model, layer_regex, insert_layer_factory,
 
     # Set the input layers of each layer
     for layer in model.layers:
-        for node in layer._outbound_nodes:
+        for node in layer._outbound_nodes[-1:]:
             layer_name = node.outbound_layer.name
             if layer_name not in network_dict['input_layers_of']:
                 network_dict['input_layers_of'].update(
@@ -20,13 +21,16 @@ def insert_layer_nonseq(model, layer_regex, insert_layer_factory,
                 network_dict['input_layers_of'][layer_name].append(layer.name)
 
     # Set the output tensor of the input layer
-    network_dict['new_output_tensor_of'].update(
-            {model.layers[0].name: model.input})
+    for layer in model.layers:
+        if isinstance(layer, InputLayer):
+            network_dict['new_output_tensor_of'].update(
+                    {layer.name: layer.input})
 
     # Iterate over all layers after the input
     model_outputs = []
-    for layer in model.layers[1:]:
-
+    for layer in model.layers:
+        if isinstance(layer, InputLayer):
+            continue
         # Determine input tensors
         layer_input = [network_dict['new_output_tensor_of'][layer_aux]
                 for layer_aux in network_dict['input_layers_of'][layer.name]]
@@ -38,7 +42,10 @@ def insert_layer_nonseq(model, layer_regex, insert_layer_factory,
             if position == 'replace':
                 x = layer_input
             elif position == 'after':
-                x = layer(layer_input)
+                if isinstance(layer_input, list):
+                    x = layer(*layer_input)
+                else:
+                    x = layer(layer_input)
             elif position == 'before':
                 pass
             else:
@@ -53,7 +60,10 @@ def insert_layer_nonseq(model, layer_regex, insert_layer_factory,
             if position == 'before':
                 x = layer(x)
         else:
-            x = layer(layer_input)
+            if isinstance(layer_input, list):
+                x = layer(*layer_input)
+            else:
+                x = layer(layer_input)
 
         # Set new output tensor (the original one, or the one of the inserted
         # layer)
