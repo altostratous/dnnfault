@@ -29,7 +29,7 @@ class VGG16ClipperVSRanger(ClipperVSRangerBase):
             result._name = name
         return result
 
-    def get_model(self, name=None):
+    def get_model(self, name=None, training_variant=None):
         result = VGG16(weights='imagenet')
         if name is not None:
             result._name = name

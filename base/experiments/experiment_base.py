@@ -64,7 +64,7 @@ class ExperimentBase:
         return experiments
 
     @abstractmethod
-    def get_model(self, name=None):
+    def get_model(self, name=None, training_variant=None):
         pass
 
     def run(self):

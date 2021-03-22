@@ -21,7 +21,7 @@ class ClipperVSRangerV4(ClipperVSRangerBase):
             result._name = name
         return result
 
-    def get_model(self, name=None):
+    def get_model(self, name=None, training_variant=None):
         result = ResNet50(weights='imagenet')
         if name is not None:
             result._name = name

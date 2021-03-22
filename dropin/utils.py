@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 class CIFAR10Sequence(Sequence):
 
-    def __init__(self, x_set, y_set, batch_size, processor, augmenter=lambda x: x):
+    def __init__(self, x_set, y_set, batch_size, processor=lambda j, k=None: (j, k), augmenter=lambda i: i):
         self.x, self.y = x_set, y_set
         self.batch_size = batch_size
         self.processor = processor
