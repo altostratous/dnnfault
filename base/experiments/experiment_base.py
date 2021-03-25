@@ -207,6 +207,10 @@ class ExperimentBase:
         if plot_result:
             x, y = plot_result
             self.draw_plot(x, y, title, x_title, y_title, pyplot_func)
+        if self.args.pyplot_out:
+            plt.savefig(self.args.pyplot_out)
+        else:
+            plt.show()
 
     def draw_plot(self, x, sub_plots, title, x_title, y_title, pyplot_func):
         fig, axe = plt.subplots(len(sub_plots), 1, figsize=(10, 8), sharex='row', sharey='row')
@@ -234,11 +238,6 @@ class ExperimentBase:
         plt.xticks(rotation='vertical')
         plt.xlabel(x_title)
         plt.tight_layout()
-
-        if self.args.pyplot_out:
-            plt.savefig(self.args.pyplot_out)
-        else:
-            plt.show()
 
     def try_recover_evaluations(self):
         log_file_name_prefix = self.get_log_file_name_prefix()

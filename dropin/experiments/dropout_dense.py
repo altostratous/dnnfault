@@ -8,6 +8,10 @@ logger = logging.getLogger(__name__)
 
 
 class DropoutDense(SimpleDense):
+
+    checkpoint_filepath = 'tmp/weights/dropout_dense/dropout_dense'
+    model_name = 'DropoutDense'
+
     def get_model(self, name=None, training_variant='dropin'):
         model = tf.keras.models.Sequential([
             tf.keras.layers.Flatten(input_shape=(28, 28)),
@@ -22,11 +26,9 @@ class DropoutDense(SimpleDense):
             logger.error(str(e))
 
         if training_variant == 'dropin':
-            a = -80.40828
-            b = 84.59567
+            a, b = -38.332344, 25.214409
         else:
-            a = -58.21058
-            b = 50.994366
+            a, b = -44.64356, 46.89449
         dropin = Dropin(model, a=a, b=b, r=0.1)
         model = dropin.augment_model(model)
         setattr(model, 'dropin', dropin)

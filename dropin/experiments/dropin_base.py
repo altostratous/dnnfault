@@ -147,19 +147,21 @@ class DropinBase(ExperimentBase, ABC, metaclass=ABCMeta):
             plt.plot(x, probability, label=variant)
         plt.xlabel('desired degraded accuracy')
         plt.ylabel('portion of vulnerable parameters')
-        plt.title('Parameters Vulnerable Portion VS Desired Degraded Accuracy')
+        plt.title(self.get_vulnerable_plot_title())
         plt.gca().yaxis.set_major_formatter(PercentFormatter(1))
         plt.gca().xaxis.set_major_formatter(PercentFormatter(1))
         plt.legend()
-        plt.show()
 
     def profile_dropin(self):
+        dropin_model = self.get_variant_none(None)
+        d = Dropin(dropin_model, representative_dataset=self.get_profile_database(dropin_model))
+        print('none', d.a, d.b)
         dropin_model = self.get_variant_dropin(None)
         d = Dropin(dropin_model, representative_dataset=self.get_profile_database(dropin_model))
+        print('dropin', d.a, d.b)
         # dropin 0.0, 972.57635
         # none 0.0 953.709
 
-        print(d.a, d.b)
 
     @abstractmethod
     def get_profile_database(self, dropin_model):
@@ -168,3 +170,6 @@ class DropinBase(ExperimentBase, ABC, metaclass=ABCMeta):
     @abstractmethod
     def train(self, dropin=False):
         pass
+
+    def get_vulnerable_plot_title(self):
+        return self.model_name
