@@ -21,15 +21,15 @@ def insert_layer_nonseq(model, layer_regex, insert_layer_factory,
                 network_dict['input_layers_of'][layer_name].append(layer.name)
 
     # Set the output tensor of the input layer
-    for layer in model.layers:
-        if isinstance(layer, InputLayer):
+    for i, layer in enumerate(model.layers):
+        if isinstance(layer, InputLayer) or i == 0:
             network_dict['new_output_tensor_of'].update(
                     {layer.name: layer.input})
 
     # Iterate over all layers after the input
     model_outputs = []
     for layer in model.layers:
-        if isinstance(layer, InputLayer):
+        if layer.name in network_dict['new_output_tensor_of']:
             continue
         # Determine input tensors
         layer_input = [network_dict['new_output_tensor_of'][layer_aux]

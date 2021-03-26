@@ -1,49 +1,18 @@
 import logging
 import tensorflow as tf
 from tensorflow import keras
+from tensorflow.python.keras import Model
+
 from dropin.experiments import DropinBase
 from dropin.utils import Dropin, CIFAR10Sequence
 
 logger = logging.getLogger(__name__)
 
 
-class AlexNet(DropinBase):
+class AlexNetV2(DropinBase):
     checkpoint_filepath = 'tmp/weights/alexnet/alexnet'
     training_epochs = 250
     model_name = 'AlexNet'
-
-    def get_model(self, name=None, training_variant='dropin'):
-        model = keras.models.Sequential([
-            keras.layers.Layer(input_shape=(227, 227, 3)),
-            keras.layers.Conv2D(filters=96, kernel_size=(11, 11), strides=(4, 4), activation='relu',
-                                input_shape=(227, 227, 3)),
-            keras.layers.BatchNormalization(),
-            keras.layers.MaxPool2D(pool_size=(3, 3), strides=(2, 2)),
-            keras.layers.Conv2D(filters=256, kernel_size=(5, 5), strides=(1, 1), activation='relu', padding="same"),
-            keras.layers.BatchNormalization(),
-            keras.layers.MaxPool2D(pool_size=(3, 3), strides=(2, 2)),
-            keras.layers.Conv2D(filters=384, kernel_size=(3, 3), strides=(1, 1), activation='relu', padding="same"),
-            keras.layers.BatchNormalization(),
-            keras.layers.Conv2D(filters=384, kernel_size=(1, 1), strides=(1, 1), activation='relu', padding="same"),
-            keras.layers.BatchNormalization(),
-            keras.layers.Conv2D(filters=256, kernel_size=(1, 1), strides=(1, 1), activation='relu', padding="same"),
-            keras.layers.BatchNormalization(),
-            keras.layers.MaxPool2D(pool_size=(3, 3), strides=(2, 2)),
-            keras.layers.Flatten(),
-            keras.layers.Dense(4096, activation='relu'),
-            keras.layers.Dropout(0.5),
-            keras.layers.Dense(4096, activation='relu'),
-            keras.layers.Dropout(0.5),
-            keras.layers.Dense(10, activation='softmax')
-        ], name=name)
-        try:
-            model.load_weights(self.get_checkpoint_filepath(variant=training_variant))
-        except Exception as e:
-            logger.error(str(e))
-        dropin = Dropin(model, a=0, b=257, r=0.1)
-        model = dropin.augment_model(model)
-        setattr(model, 'dropin', dropin)
-        return model
 
     def get_dataset(self):
         (train_images, train_labels), (test_images, test_labels) = keras.datasets.cifar10.load_data()
@@ -78,7 +47,7 @@ class AlexNet(DropinBase):
         if dropin:
             model = self.get_model(training_variant='dropin')
         else:
-            model = self.get_model()
+            model = self.get_model(training_variant='none')
         self.compile_model(model)
 
         if dropin:
@@ -105,3 +74,35 @@ class AlexNet(DropinBase):
         validation_images, validation_labels = train_images[:5000], train_labels[:5000]
         return CIFAR10Sequence(validation_images, validation_labels, batch_size,
                                self.process_images, augmenter=dropin_model.dropin.augment_zero)
+
+    def get_raw_model(self, name=None) -> Model:
+        model = keras.models.Sequential([
+            keras.layers.Layer(input_shape=(227, 227, 3)),
+            keras.layers.Conv2D(filters=96, kernel_size=(11, 11), strides=(4, 4), activation='relu',
+                                input_shape=(227, 227, 3)),
+            keras.layers.BatchNormalization(),
+            keras.layers.MaxPool2D(pool_size=(3, 3), strides=(2, 2)),
+            keras.layers.Conv2D(filters=256, kernel_size=(5, 5), strides=(1, 1), activation='relu', padding="same"),
+            keras.layers.BatchNormalization(),
+            keras.layers.MaxPool2D(pool_size=(3, 3), strides=(2, 2)),
+            keras.layers.Conv2D(filters=384, kernel_size=(3, 3), strides=(1, 1), activation='relu', padding="same"),
+            keras.layers.BatchNormalization(),
+            keras.layers.Conv2D(filters=384, kernel_size=(1, 1), strides=(1, 1), activation='relu', padding="same"),
+            keras.layers.BatchNormalization(),
+            keras.layers.Conv2D(filters=256, kernel_size=(1, 1), strides=(1, 1), activation='relu', padding="same"),
+            keras.layers.BatchNormalization(),
+            keras.layers.MaxPool2D(pool_size=(3, 3), strides=(2, 2)),
+            keras.layers.Flatten(),
+            keras.layers.Dense(4096, activation='relu'),
+            keras.layers.Dropout(0.5),
+            keras.layers.Dense(4096, activation='relu'),
+            keras.layers.Dropout(0.5),
+            keras.layers.Dense(10, activation='softmax')
+        ], name=name)
+        default_dropin = self.get_default_dropin(model)
+        model = default_dropin.augment_model(model)
+        setattr(model, 'dropin', default_dropin)
+        return model
+
+    def get_default_dropin(self, model):
+        return Dropin(model, r=0.5, mode='random', a=0, b=0)

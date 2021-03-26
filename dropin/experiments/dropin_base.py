@@ -1,16 +1,17 @@
+import os
+import pickle
 from abc import ABC, ABCMeta, abstractmethod
 
 import numpy as np
 import tensorflow as tf
 from matplotlib import pyplot as plt
 from matplotlib.ticker import PercentFormatter
-from tensorflow import keras
 from tensorflow.python.keras.metrics import sparse_top_k_categorical_accuracy
 from tensorflow_model_optimization.python.core.quantization.keras.quantize import quantize_annotate_layer, \
     quantize_apply
 
 from base.experiments import ExperimentBase
-from dropin.utils import Dropin, CIFAR10Sequence
+from dropin.utils import Dropin
 
 import logging
 
@@ -19,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 class DropinBase(ExperimentBase, ABC, metaclass=ABCMeta):
     checkpoint_filepath = None
-    training_epochs = 250
+    training_epochs = 100
     variants = ExperimentBase.variants + (
         'dropin',
     )
@@ -153,15 +154,16 @@ class DropinBase(ExperimentBase, ABC, metaclass=ABCMeta):
         plt.legend()
 
     def profile_dropin(self):
-        dropin_model = self.get_variant_none(None)
-        d = Dropin(dropin_model, representative_dataset=self.get_profile_database(dropin_model))
-        print('none', d.a, d.b)
-        dropin_model = self.get_variant_dropin(None)
-        d = Dropin(dropin_model, representative_dataset=self.get_profile_database(dropin_model))
-        print('dropin', d.a, d.b)
-        # dropin 0.0, 972.57635
-        # none 0.0 953.709
+        for variant in self.get_variants():
+            dropin_model = self.get_variant(None, variant)
+            d = Dropin(dropin_model, representative_dataset=self.get_profile_database(dropin_model))
+            with open(self.get_profile_path(variant), mode='wb') as f:
+                pickle.dump((d.a, d.b), f)
+            # dropin 0.0, 972.57635
+            # none 0.0 953.709
 
+    def get_profile_path(self, variant):
+        return 'dropin/resources/{}_{}_profile.pkl'.format(self.__class__.__name__, variant)
 
     @abstractmethod
     def get_profile_database(self, dropin_model):
@@ -173,3 +175,18 @@ class DropinBase(ExperimentBase, ABC, metaclass=ABCMeta):
 
     def get_vulnerable_plot_title(self):
         return self.model_name
+
+    def get_model(self, name=None, training_variant='dropin'):
+        model = self.get_raw_model(name=name)
+        try:
+            model.load_weights(self.get_checkpoint_filepath(variant=training_variant))
+        except Exception as e:
+            logger.error(str(e))
+        profile_path = self.get_profile_path(training_variant)
+        if os.path.exists(profile_path):
+            with open(profile_path, mode='rb') as f:
+                a, b = pickle.load(f)
+                model.dropin.a, model.dropin.b = a, b
+        else:
+            logger.error("Profile info doesn't exist {}".format(profile_path))
+        return model

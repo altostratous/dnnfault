@@ -102,12 +102,8 @@ class ExperimentBase:
                             counter += 1
                             continue
                         logger.info('Creating variant {}'.format(variant_key))
-                        model = getattr(self, 'get_variant_{}'.format(variant_key))(faulty_model,
-                                                                                    name='variant_{}_{}_{}'.format(
-                                                                                        epoch,
-                                                                                        config_id,
-                                                                                        variant_key
-                                                                                    ))
+                        variant_name = 'variant_{}_{}_{}'.format(epoch, config_id, variant_key)
+                        model = self.get_variant(faulty_model, variant_key, variant_name)
                         logger.info('Evaluating ...')
                         self.compile_model(model)
                         evaluation_result_chunk = self.evaluate(model, x, y_true, config)
@@ -117,6 +113,9 @@ class ExperimentBase:
                         gc.collect()
                         counter += 1
                     K.clear_session()
+
+    def get_variant(self, faulty_model, variant_key, variant_name=None):
+        return getattr(self, 'get_variant_{}'.format(variant_key))(faulty_model, name=variant_name)
 
     def copy_model(self, faulty_model, name=None):
         model = self.get_raw_model(name=name)

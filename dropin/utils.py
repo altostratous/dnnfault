@@ -33,11 +33,12 @@ class CIFAR10Sequence(Sequence):
 class Dropin:
     regex = 'conv2d.*|dense.*'
 
-    def __init__(self, model, representative_dataset=None, a=None, b=None, r=0.5) -> None:
+    def __init__(self, model, representative_dataset=None, a=None, b=None, r=0.5, mode='worst') -> None:
         super().__init__()
         self.model = model
         self.representative_dataset = representative_dataset
         self.r = r
+        self.mode = mode
 
         if self.representative_dataset:
             def profiler_layer_factory(insert_layer_name):
@@ -52,6 +53,7 @@ class Dropin:
                 logger.info('Done with {}/{} batches.'.format(i, train_data_size))
             self.a, self.b = DropinProfiler.a, DropinProfiler.b
         else:
+            assert None not in (a, b)
             self.a, self.b = a, b
         self.perturbation_inputs = []
 
@@ -99,7 +101,7 @@ class Dropin:
         return result
 
     def get_max_magnitude(self):
-        return 2 ** np.ceil(np.log2(np.maximum(np.abs(self.a), np.abs(self.b))))
+        return 2 ** self.get_maximum_exponent()
 
     def generate_perturbation(self, batch_size, perturbation_input):
         shape = (batch_size,) + tuple(d for d in perturbation_input.shape if d is not None)
@@ -107,11 +109,22 @@ class Dropin:
         zeroes = zeroes.T
         if 'conv' in perturbation_input.name:
             channel_to_terminate = random.randrange(zeroes.shape[0])
-            zeroes[channel_to_terminate] += (-1) ** random.randint(0, 1) * self.get_max_magnitude()
+            zeroes[channel_to_terminate] += (-1) ** random.randint(0, 1) * self.get_magnitude()
         elif 'dense' in perturbation_input.name:
             access = zeroes
             while len(access.shape) > 1:
                 access = access[random.randrange(len(access))]
-            access += (-1) ** random.randint(0, 1) * self.get_max_magnitude()
+            access += (-1) ** random.randint(0, 1) * self.get_magnitude()
         zeroes = zeroes.T
         return zeroes
+
+    def get_magnitude(self):
+        if self.mode == 'worst':
+            return self.get_max_magnitude()
+        elif self.mode == 'random':
+            return 2 ** random.choice(range(self.get_maximum_exponent()))
+        else:
+            raise ValueError
+
+    def get_maximum_exponent(self):
+        return np.ceil(np.log2(np.maximum(np.abs(self.a), np.abs(self.b))))
