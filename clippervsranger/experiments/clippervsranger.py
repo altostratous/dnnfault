@@ -11,6 +11,7 @@ class ClipperVSRangerV5(ClipperVSRangerBase):
     model_name = 'ResNet50'
 
     variants = (
+        'none',
         'rescale',
         'clipper',
         'channel_clipper',
