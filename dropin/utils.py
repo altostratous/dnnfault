@@ -44,7 +44,7 @@ class Dropin:
             def profiler_layer_factory(insert_layer_name):
                 return DropinProfiler(name=insert_layer_name)
 
-            profiler = insert_layer_nonseq(model, self.regex, profiler_layer_factory, 'profiler')
+            profiler = insert_layer_nonseq(model, self.regex, profiler_layer_factory, 'profiler', only_last_node=True)
             profiler.run_eagerly = True
             train_data_size = len(representative_dataset)
             for i, data in enumerate(self.representative_dataset):

@@ -6,10 +6,16 @@ from tensorflow.python.keras.applications.resnet import ResNet50
 from clippervsranger.experiments import ClipperVSRangerBase
 
 
-class ClipperVSRangerV4(ClipperVSRangerBase):
+class ClipperVSRangerV5(ClipperVSRangerBase):
 
     model_name = 'ResNet50'
 
+    variants = (
+        'rescale',
+        'clipper',
+        'channel_clipper',
+        'no_fault',
+    )
     bounds_file_name = 'clippervsranger/resources/resnet50bounds.pkl'
     pytorch_bounds_file_name = 'clippervsranger/resources/resnet50bounds_pytorch.pkl'
     with open(bounds_file_name, mode='rb') as f:

@@ -17,7 +17,7 @@ from tensorflow.python.keras.utils import data_utils
 
 from base.experiments import ExperimentBase
 from base.utils import insert_layer_nonseq
-from clippervsranger.layers import RangerLayer, ClipperLayer, ProfileLayer
+from clippervsranger.layers import RangerLayer, ClipperLayer, ProfileLayer, RescaleLayer, ChannelClipperLayer
 from matplotlib import pyplot as plt
 
 
@@ -81,6 +81,22 @@ class ClipperVSRangerBase(ExperimentBase, metaclass=ABCMeta):
 
         def ranger_layer_factory(insert_layer_name):
             return RangerLayer(name=insert_layer_name, bounds=self.bounds)
+        model = insert_layer_nonseq(model, self.activation_name_pattern, ranger_layer_factory, 'dummy', model_name=name)
+        return model
+
+    def get_variant_rescale(self, faulty_model, name=None):
+        model = self.copy_model(faulty_model, name=name + '_base_copy')
+
+        def ranger_layer_factory(insert_layer_name):
+            return RescaleLayer(name=insert_layer_name, bounds=self.bounds)
+        model = insert_layer_nonseq(model, self.activation_name_pattern, ranger_layer_factory, 'dummy', model_name=name)
+        return model
+
+    def get_variant_channel_clipper(self, faulty_model, name=None):
+        model = self.copy_model(faulty_model, name=name + '_base_copy')
+
+        def ranger_layer_factory(insert_layer_name):
+            return ChannelClipperLayer(name=insert_layer_name, bounds=self.bounds)
         model = insert_layer_nonseq(model, self.activation_name_pattern, ranger_layer_factory, 'dummy', model_name=name)
         return model
 
