@@ -105,4 +105,4 @@ class AlexNetV2(DropinBase):
         return model
 
     def get_default_dropin(self, model):
-        return Dropin(model, r=0.5, mode='random', a=0, b=0)
+        return Dropin(model, r=0.5, mode='random', a=0, b=2)

@@ -122,7 +122,7 @@ class Dropin:
         if self.mode == 'worst':
             return self.get_max_magnitude()
         elif self.mode == 'random':
-            return 2 ** random.choice(range(self.get_maximum_exponent()))
+            return 2 ** random.choice(range(int(self.get_maximum_exponent())))
         else:
             raise ValueError
 
