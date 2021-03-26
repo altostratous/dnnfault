@@ -187,6 +187,7 @@ class DropinBase(ExperimentBase, ABC, metaclass=ABCMeta):
             with open(profile_path, mode='rb') as f:
                 a, b = pickle.load(f)
                 model.dropin.a, model.dropin.b = a, b
+                logger.info("Loaded bounds for dropin as {}".format((a, b)))
         else:
             logger.error("Profile info doesn't exist {}".format(profile_path))
         return model
