@@ -41,6 +41,8 @@ class Dropin:
         self.mode = mode
 
         if self.representative_dataset:
+            DropinProfiler.a, DropinProfiler.b = None, None
+
             def profiler_layer_factory(insert_layer_name):
                 return DropinProfiler(name=insert_layer_name)
 
