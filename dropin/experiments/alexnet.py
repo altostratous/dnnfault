@@ -105,4 +105,6 @@ class AlexNetV2(DropinBase):
         return model
 
     def get_default_dropin(self, model):
+        if self.args.tag and self.args.tag == 'worst':
+            Dropin(model, r=0.5, mode='worst', a=0, b=2)
         return Dropin(model, r=0.5, mode='random', a=0, b=2)
