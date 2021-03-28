@@ -4,7 +4,7 @@
 #SBATCH --mem=48G
 source venv/bin/activate
 while true; do
- timeout 30m python manage.py AlexNetV2
+ timeout 30m python manage.py AlexNetV2 --tag worst
 done
 
 
