@@ -3,7 +3,9 @@
 #SBATCH --gres=gpu:p100:1
 #SBATCH --mem=48G
 source venv/bin/activate
-python manage.py AlexNetV2 --action train
+while true; do
+ timeout 30m python manage.py AlexNetV2
+done
 
 
 
