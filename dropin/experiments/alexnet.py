@@ -36,7 +36,8 @@ class AlexNetV2(DropinBase):
         image = tf.image.resize(image, (227, 227))
         return image, label
 
-    def train(self, dropin=False):
+    def train(self, training_variant='none'):
+        dropin = training_variant != 'none'
         batch_size = 16
         (train_images, train_labels), (test_images, test_labels) = keras.datasets.cifar10.load_data()
         validation_images, validation_labels = train_images[:5000], train_labels[:5000]
@@ -44,10 +45,7 @@ class AlexNetV2(DropinBase):
         train_images, train_labels = train_images[5000:], train_labels[5000:]
         # train_images, train_labels = train_images[:500], train_labels[:500]
 
-        if dropin:
-            model = self.get_model(training_variant='dropin')
-        else:
-            model = self.get_model(training_variant='none')
+        model = self.get_model(training_variant=training_variant)
         self.compile_model(model)
 
         if dropin:
@@ -108,3 +106,22 @@ class AlexNetV2(DropinBase):
         if self.args.tag and self.args.tag == 'worst':
             Dropin(model, r=0.5, mode='worst', a=0, b=2)
         return Dropin(model, r=0.5, mode='random', a=0, b=2)
+
+
+class AlexNetRandomSmoothing(AlexNetV2):
+
+    variants = DropinBase.variants + (
+        'random_smoothing',
+    )
+    default_config = {
+        'mode': 'evaluation'
+    }
+    checkpoint_filepath = 'tmp/weights/alexnet/alexnet'
+    training_epochs = 250
+    model_name = 'AlexNetRS'
+
+    def get_default_dropin(self, model):
+        if self.args.tag and self.args.tag == 'worst':
+            Dropin(model, r=0.5, mode='worst', a=0, b=2)
+        return Dropin(model, r=0.5, mode='zero', a=0, b=2, regex='batch_normalization.*',
+                      perturb=lambda x, p: x * p)

@@ -31,14 +31,16 @@ class CIFAR10Sequence(Sequence):
 
 
 class Dropin:
-    regex = 'conv2d.*|dense.*'
 
-    def __init__(self, model, representative_dataset=None, a=None, b=None, r=0.5, mode='worst') -> None:
+    def __init__(self, model, representative_dataset=None, a=None, b=None, r=0.5, mode='worst',
+                 regex='conv2d.*|dense.*', perturb=lambda x, p: x + p) -> None:
         super().__init__()
         self.model = model
         self.representative_dataset = representative_dataset
         self.r = r
         self.mode = mode
+        self.regex = regex
+        self.perturb = perturb
 
         if self.representative_dataset:
             DropinProfiler.a, DropinProfiler.b = None, None
@@ -68,7 +70,7 @@ class Dropin:
                 perturbation_input = Input(
                     shape=tuple(d for d in original_output.shape if d is not None),
                     name=layer.name + '_perturbation')
-                x = original_output + perturbation_input
+                x = self.perturb(original_output, perturbation_input)
                 self.perturbation_inputs.append(perturbation_input)
             else:
                 x = layer(x)
@@ -77,6 +79,10 @@ class Dropin:
 
     def augment_data(self, data, label=None):
         result = [data]
+        if self.mode == 'zero':
+            zeros = np.ones
+        else:
+            zeros = np.zeros
         weights = [np.prod([d for d in i.shape if d is not None])
                    for i in self.perturbation_inputs]
         weights_sum = sum(weights)
@@ -89,15 +95,19 @@ class Dropin:
                 result.append(self.generate_perturbation(len(data),
                                                          perturbation_input))
             else:
-                result.append(np.zeros(
+                result.append(zeros(
                     (len(data),) + tuple(d for d in perturbation_input.shape
                                          if d is not None)))
         return result
 
     def augment_zero(self, data, label=None):
         result = [data]
+        if self.mode == 'zero':
+            zeros = np.ones
+        else:
+            zeros = np.zeros
         for i, perturbation_input in enumerate(self.perturbation_inputs):
-            result.append(np.zeros(
+            result.append(zeros(
                 (len(data),) + tuple(d for d in perturbation_input.shape
                                      if d is not None)))
         return result
@@ -107,16 +117,29 @@ class Dropin:
 
     def generate_perturbation(self, batch_size, perturbation_input):
         shape = (batch_size,) + tuple(d for d in perturbation_input.shape if d is not None)
-        zeroes = np.zeros(shape)
+        if self.mode == 'zero':
+            zeros = np.ones
+        else:
+            zeros = np.zeros
+        zeroes = zeros(shape)
         zeroes = zeroes.T
-        if 'conv' in perturbation_input.name:
+        if (
+            'conv' in perturbation_input.name or
+            'batch_normalization' in perturbation_input.name
+        ):
             channel_to_terminate = random.randrange(zeroes.shape[0])
-            zeroes[channel_to_terminate] += (-1) ** random.randint(0, 1) * self.get_magnitude()
+            zeroes[channel_to_terminate] = self.perturb(
+                zeroes[channel_to_terminate],
+                (-1) ** random.randint(0, 1) * self.get_magnitude()
+            )
         elif 'dense' in perturbation_input.name:
+            _access = None
+            index = None
             access = zeroes
             while len(access.shape) > 1:
-                access = access[random.randrange(len(access))]
-            access += (-1) ** random.randint(0, 1) * self.get_magnitude()
+                _access, index = access, random.randrange(len(access))
+                access = access[index]
+            _access[index] = self.perturb(access, (-1) ** random.randint(0, 1) * self.get_magnitude())
         zeroes = zeroes.T
         return zeroes
 
@@ -125,6 +148,8 @@ class Dropin:
             return self.get_max_magnitude()
         elif self.mode == 'random':
             return 2 ** random.choice(range(int(self.get_maximum_exponent())))
+        elif self.mode == 'zero':
+            return 0
         else:
             raise ValueError
 

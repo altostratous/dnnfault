@@ -115,10 +115,16 @@ class DropinBase(ExperimentBase, ABC, metaclass=ABCMeta):
         logger.info('Model quantized for tensorflow lite successfully')
 
     def train_with_dropin(self):
-        self.train(dropin=True)
+        self.train(training_variant='dropin')
+
+    def train_with_random_smoothing(self):
+        self.train(training_variant='random_smoothing')
 
     def get_variant_dropin(self, model, name=None):
         return self.get_model(name=name, training_variant='dropin')
+
+    def get_variant_random_smoothing(self, model, name=None):
+        return self.get_model(name=name, training_variant='random_smoothing')
 
     def get_variant_none(self, model, name=None):
         return self.get_model(name=name, training_variant='none')
@@ -170,7 +176,7 @@ class DropinBase(ExperimentBase, ABC, metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def train(self, dropin=False):
+    def train(self, training_variant='none'):
         pass
 
     def get_vulnerable_plot_title(self):
