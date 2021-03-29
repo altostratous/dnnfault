@@ -136,6 +136,7 @@ class DropinBase(ExperimentBase, ABC, metaclass=ABCMeta):
         return plots
 
     def vulnerable(self):
+        # TODO fix for random smoothing
         for variant, condition in (
             ('none-fault', lambda e: e['variant_key'] == 'none' and e['config']['mode'] == 'evaluation'),
             ('none-no-fault', lambda e: e['variant_key'] == 'none' and e['config']['mode'] == 'no_fault'),

@@ -60,7 +60,7 @@ class AlexNetV2(DropinBase):
                   validation_data=CIFAR10Sequence(validation_images, validation_labels, batch_size,
                                                   self.process_images, augmenter=data_augmenter),
                   validation_freq=1, callbacks=[tf.keras.callbacks.ModelCheckpoint(
-                    filepath=self.get_checkpoint_filepath(variant='' if not dropin else 'dropin'),
+                    filepath=self.get_checkpoint_filepath(variant='' if not dropin else training_variant),
                     save_weights_only=True,
                     monitor='val_accuracy',
                     mode='max',
