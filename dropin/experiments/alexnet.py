@@ -123,5 +123,5 @@ class AlexNetRandomSmoothingV2(AlexNetV2):
     def get_default_dropin(self, model):
         if self.args.tag and self.args.tag == 'worst':
             Dropin(model, r=1, mode='worst', a=0, b=2)
-        return Dropin(model, r=1, mode='zero', a=0, b=2, regex='batch_normalization.*',
+        return Dropin(model, r=0.5, mode='zero', a=0, b=2, regex='batch_normalization.*',
                       perturb=lambda x, p: x * p, portion=0.5)
