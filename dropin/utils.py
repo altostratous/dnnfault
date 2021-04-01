@@ -33,7 +33,7 @@ class CIFAR10Sequence(Sequence):
 class Dropin:
 
     def __init__(self, model, representative_dataset=None, a=None, b=None, r=0.5, mode='worst',
-                 regex='conv2d.*|dense.*', perturb=lambda x, p: x + p) -> None:
+                 regex='conv2d.*|dense.*', perturb=lambda x, p: x + p, count=1, portion=None) -> None:
         super().__init__()
         self.model = model
         self.representative_dataset = representative_dataset
@@ -41,6 +41,9 @@ class Dropin:
         self.mode = mode
         self.regex = regex
         self.perturb = perturb
+
+        self.count = count
+        self.portion = portion
 
         if self.representative_dataset:
             DropinProfiler.a, DropinProfiler.b = None, None
@@ -123,23 +126,30 @@ class Dropin:
             zeros = np.zeros
         zeroes = zeros(shape)
         zeroes = zeroes.T
-        if (
-            'conv' in perturbation_input.name or
-            'batch_normalization' in perturbation_input.name
-        ):
-            channel_to_terminate = random.randrange(zeroes.shape[0])
-            zeroes[channel_to_terminate] = self.perturb(
-                zeroes[channel_to_terminate],
-                (-1) ** random.randint(0, 1) * self.get_magnitude()
-            )
-        elif 'dense' in perturbation_input.name:
-            _access = None
-            index = None
-            access = zeroes
-            while len(access.shape) > 1:
-                _access, index = access, random.randrange(len(access))
-                access = access[index]
-            _access[index] = self.perturb(access, (-1) ** random.randint(0, 1) * self.get_magnitude())
+        for _ in range(self.count):
+            if (
+                'conv' in perturbation_input.name or
+                'batch_normalization' in perturbation_input.name
+            ):
+                dim = zeroes.shape[0]
+                if self.portion:
+                    channel_to_terminate = random.choices(range(dim), k=int(self.portion * dim))
+                else:
+                    channel_to_terminate = random.randrange(dim)
+                zeroes[channel_to_terminate] = self.perturb(
+                    zeroes[channel_to_terminate],
+                    (-1) ** random.randint(0, 1) * self.get_magnitude()
+                )
+            elif 'dense' in perturbation_input.name:
+                _access = None
+                index = None
+                if self.portion is not None:
+                    raise ValueError
+                access = zeroes
+                while len(access.shape) > 1:
+                    _access, index = access, random.randrange(len(access))
+                    access = access[index]
+                _access[index] = self.perturb(access, (-1) ** random.randint(0, 1) * self.get_magnitude())
         zeroes = zeroes.T
         return zeroes
 

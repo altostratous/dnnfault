@@ -1,4 +1,6 @@
 import os
+from collections import defaultdict
+
 import pickle
 from abc import ABC, ABCMeta, abstractmethod
 
@@ -138,14 +140,22 @@ class DropinBase(ExperimentBase, ABC, metaclass=ABCMeta):
     def vulnerable(self):
         # TODO fix for random smoothing
         for variant, condition in (
-            ('none-fault', lambda e: e['variant_key'] == 'none' and e['config']['mode'] == 'evaluation'),
-            ('none-no-fault', lambda e: e['variant_key'] == 'none' and e['config']['mode'] == 'no_fault'),
-            ('dropin-fault', lambda e: e['variant_key'] == 'dropin' and e['config']['mode'] == 'evaluation'),
-            ('dropin-no-fault', lambda e: e['variant_key'] == 'dropin' and e['config']['mode'] == 'no_fault'),
+            ('regular training', lambda e: e['variant_key'] == 'none' and e['config']['mode'] == 'evaluation'),
+            # ('none-no-fault', lambda e: e['variant_key'] == 'none' and e['config']['mode'] == 'no_fault'),
+            ('noisy training', lambda e: e['variant_key'] == 'dropin' and e['config']['mode'] == 'evaluation'),
+            # ('dropin-no-fault', lambda e: e['variant_key'] == 'dropin' and e['config']['mode'] == 'no_fault'),
+            ('random_smoothing', lambda e: e['variant_key'] == 'random_smoothing' and e['config']['mode'] == 'evaluation'),
+            # ('random_smoothing-no-fault', lambda e: e['variant_key'] == 'random_smoothing' and e['config']['mode'] == 'no_fault'),
         ):
             evaluation = [
-                np.average(e['evaluation']['acc'])
+                (e['epoch'], np.average(e['evaluation']['acc']))
                 for e in self.evaluations if condition(e)]
+            batch_accuracies = defaultdict(list)
+            for e in evaluation:
+                batch_accuracies[e[0]].append(e[1])
+            evaluation = [np.average(a) for b, a in batch_accuracies.items()]
+            evaluation = [np.average(e['evaluation']['acc'])
+                          for e in self.evaluations if condition(e)]
             probability = []
             x = []
             for step in range(0, 1001, 5):

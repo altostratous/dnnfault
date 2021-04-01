@@ -108,7 +108,7 @@ class AlexNetV2(DropinBase):
         return Dropin(model, r=0.5, mode='random', a=0, b=2)
 
 
-class AlexNetRandomSmoothing(AlexNetV2):
+class AlexNetRandomSmoothingV2(AlexNetV2):
 
     variants = DropinBase.variants + (
         'random_smoothing',
@@ -116,12 +116,12 @@ class AlexNetRandomSmoothing(AlexNetV2):
     default_config = {
         'mode': 'evaluation'
     }
-    checkpoint_filepath = 'tmp/weights/alexnet/alexnet'
+    checkpoint_filepath = 'tmp/weights/alexnetv2/alexnet'
     training_epochs = 250
-    model_name = 'AlexNetRS'
+    model_name = 'AlexNetRSV2'
 
     def get_default_dropin(self, model):
         if self.args.tag and self.args.tag == 'worst':
-            Dropin(model, r=0.5, mode='worst', a=0, b=2)
-        return Dropin(model, r=0.5, mode='zero', a=0, b=2, regex='batch_normalization.*',
-                      perturb=lambda x, p: x * p)
+            Dropin(model, r=1, mode='worst', a=0, b=2)
+        return Dropin(model, r=1, mode='zero', a=0, b=2, regex='batch_normalization.*',
+                      perturb=lambda x, p: x * p, portion=0.5)
