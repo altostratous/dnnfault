@@ -1,4 +1,3 @@
 APPS = (
-    'clippervsranger',
-    'dropin'
+    'retraining',
 )
