@@ -141,11 +141,11 @@ class DropinBase(ExperimentBase, ABC, metaclass=ABCMeta):
         # TODO fix for random smoothing
         for variant, condition in (
             ('regular training', lambda e: e['variant_key'] == 'none' and e['config']['mode'] == 'evaluation'),
-            # ('none-no-fault', lambda e: e['variant_key'] == 'none' and e['config']['mode'] == 'no_fault'),
+            ('none-no-fault', lambda e: e['variant_key'] == 'none' and e['config']['mode'] == 'no_fault'),
             ('noisy training', lambda e: e['variant_key'] == 'dropin' and e['config']['mode'] == 'evaluation'),
-            # ('dropin-no-fault', lambda e: e['variant_key'] == 'dropin' and e['config']['mode'] == 'no_fault'),
+            ('dropin-no-fault', lambda e: e['variant_key'] == 'dropin' and e['config']['mode'] == 'no_fault'),
             ('random_smoothing', lambda e: e['variant_key'] == 'random_smoothing' and e['config']['mode'] == 'evaluation'),
-            # ('random_smoothing-no-fault', lambda e: e['variant_key'] == 'random_smoothing' and e['config']['mode'] == 'no_fault'),
+            ('random_smoothing-no-fault', lambda e: e['variant_key'] == 'random_smoothing' and e['config']['mode'] == 'no_fault'),
         ):
             evaluation = [
                 (e['epoch'], np.average(e['evaluation']['acc']))
