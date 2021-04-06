@@ -95,9 +95,7 @@ train_ds = train_ds.shuffle(buffer_size=s).batch(batch_size, drop_remainder=True
 
 alexnet.load_weights('tmp/weights/quantized_alexnet/none')
 
-for layer in alexnet.layers:
-    if isinstance(layer, keras.layers.Conv2D):
-        print(layer.kernel)
+breakpoint()
 
 alexnet.compile(
     loss='sparse_categorical_crossentropy',
