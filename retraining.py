@@ -93,6 +93,12 @@ test_ds = test_ds.shuffle(buffer_size=s).batch(batch_size, drop_remainder=True).
 s = tf.data.Dataset.cardinality(train_ds)
 train_ds = train_ds.shuffle(buffer_size=s).batch(batch_size, drop_remainder=True    ).map(process_images)
 
+alexnet.load_weights('tmp/weights/quantized_alexnet/none')
+
+for layer in alexnet.layers:
+    if isinstance(layer, keras.layers.Conv2D):
+        print(layer.kernel)
+
 alexnet.compile(
     loss='sparse_categorical_crossentropy',
     optimizer=tf.optimizers.SGD(lr=0.001),
