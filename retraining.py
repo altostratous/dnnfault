@@ -67,7 +67,9 @@ alexnet = tf.keras.models.clone_model(
     clone_function=apply_quantization_to_dense,
 )
 
-alexnet = quantization.keras.quantize_apply(alexnet)
+with quantization.keras.quantize_scope(
+  {'DenseQuantizeConfig': DenseQuantizeConfig}):
+    alexnet = quantization.keras.quantize_apply(alexnet)
 
 
 def process_images(image, label=None):
