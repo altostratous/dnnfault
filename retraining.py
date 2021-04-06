@@ -81,11 +81,11 @@ def process_images(image, label=None):
 
 
 batch_size = 16
-(train_images, train_labels), (test_images, test_labels) = keras.datasets.cifar10.load_data()
-# validation_images, validation_labels = train_images[:5000], train_labels[:5000]
-validation_images, validation_labels = train_images[:20], train_labels[:20]
-# train_images, train_labels = train_images[5000:], train_labels[5000:]
-train_images, train_labels = train_images[:20], train_labels[:20]
+(all_images, all_labels), (test_images, test_labels) = keras.datasets.cifar10.load_data()
+validation_images, validation_labels = all_images[:5000], all_labels[:5000]
+# validation_images, validation_labels = all_images[:20], all_labels[:20]
+train_images, train_labels = all_images[5000:], all_labels[5000:]
+# train_images, train_labels = all_images[:20], all_labels[:20]
 train_ds = tf.data.Dataset.from_tensor_slices((train_images, train_labels))
 test_ds = tf.data.Dataset.from_tensor_slices((test_images, test_labels))
 s = tf.data.Dataset.cardinality(test_ds)
