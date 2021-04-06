@@ -50,10 +50,10 @@ def process_images(image, label=None):
 
 batch_size = 16
 (train_images, train_labels), (test_images, test_labels) = keras.datasets.cifar10.load_data()
-# validation_images, validation_labels = train_images[:5000], train_labels[:5000]
-validation_images, validation_labels = train_images[:500], train_labels[:500]
-# train_images, train_labels = train_images[5000:], train_labels[5000:]
-train_images, train_labels = train_images[:500], train_labels[:500]
+validation_images, validation_labels = train_images[:5000], train_labels[:5000]
+# validation_images, validation_labels = train_images[:500], train_labels[:500]
+train_images, train_labels = train_images[5000:], train_labels[5000:]
+# train_images, train_labels = train_images[:500], train_labels[:500]
 train_ds = tf.data.Dataset.from_tensor_slices((train_images, train_labels))
 test_ds = tf.data.Dataset.from_tensor_slices((test_images, test_labels))
 s = tf.data.Dataset.cardinality(test_ds)
@@ -68,7 +68,7 @@ alexnet.compile(
 alexnet.run_eagerly = True
 
 alexnet.fit(train_ds,
-            epochs=5,
+            epochs=50,
             validation_data=test_ds,
             validation_freq=1, callbacks=[tf.keras.callbacks.ModelCheckpoint(
                 filepath='tmp/weights/quantized_alexnet/none',
