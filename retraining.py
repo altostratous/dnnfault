@@ -25,10 +25,40 @@ alexnet = keras.models.Sequential([
     keras.layers.Dense(10, activation='softmax')
 ])
 
+LastValueQuantizer = quantization.keras.quantizers.LastValueQuantizer
+MovingAverageQuantizer = quantization.keras.quantizers.MovingAverageQuantizer
+
+
+class DenseQuantizeConfig(quantization.keras.QuantizeConfig):
+    # Configure how to quantize weights.
+    def get_weights_and_quantizers(self, layer):
+      return [(layer.kernel, LastValueQuantizer(num_bits=8, symmetric=True, narrow_range=False, per_axis=False))]
+
+    # Configure how to quantize activations.
+    def get_activations_and_quantizers(self, layer):
+      return [(layer.activation, MovingAverageQuantizer(num_bits=8, symmetric=False, narrow_range=False, per_axis=False))]
+
+    def set_quantize_weights(self, layer, quantize_weights):
+      # Add this line for each item returned in `get_weights_and_quantizers`
+      # , in the same order
+      layer.kernel = quantize_weights[0]
+
+    def set_quantize_activations(self, layer, quantize_activations):
+      pass
+
+    # Configure how to quantize outputs (may be equivalent to activations).
+    def get_output_quantizers(self, layer):
+      return []
+
+    def get_config(self):
+      return {}
+
 
 def apply_quantization_to_dense(layer):
-    if isinstance(layer, tf.keras.layers.Dense) or isinstance(layer, tf.keras.layers.Conv2D):
+    if isinstance(layer, tf.keras.layers.Conv2D):
         return quantization.keras.quantize_annotate_layer(layer)
+    if isinstance(layer, tf.keras.layers.Dense):
+        return quantization.keras.quantize_annotate_layer(layer, DenseQuantizeConfig())
     return layer
 
 
@@ -50,22 +80,22 @@ def process_images(image, label=None):
 
 batch_size = 16
 (train_images, train_labels), (test_images, test_labels) = keras.datasets.cifar10.load_data()
-validation_images, validation_labels = train_images[:5000], train_labels[:5000]
-# validation_images, validation_labels = train_images[:500], train_labels[:500]
-train_images, train_labels = train_images[5000:], train_labels[5000:]
-# train_images, train_labels = train_images[:500], train_labels[:500]
+# validation_images, validation_labels = train_images[:5000], train_labels[:5000]
+validation_images, validation_labels = train_images[:20], train_labels[:20]
+# train_images, train_labels = train_images[5000:], train_labels[5000:]
+train_images, train_labels = train_images[:20], train_labels[:20]
 train_ds = tf.data.Dataset.from_tensor_slices((train_images, train_labels))
 test_ds = tf.data.Dataset.from_tensor_slices((test_images, test_labels))
 s = tf.data.Dataset.cardinality(test_ds)
-test_ds = test_ds.shuffle(buffer_size=s).batch(batch_size).map(process_images)
+test_ds = test_ds.shuffle(buffer_size=s).batch(batch_size, drop_remainder=True).map(process_images)
 s = tf.data.Dataset.cardinality(train_ds)
-train_ds = train_ds.shuffle(buffer_size=s).batch(batch_size).map(process_images)
+train_ds = train_ds.shuffle(buffer_size=s).batch(batch_size, drop_remainder=True    ).map(process_images)
 
 alexnet.compile(
     loss='sparse_categorical_crossentropy',
     optimizer=tf.optimizers.SGD(lr=0.001),
     metrics=['accuracy'])
-alexnet.run_eagerly = True
+
 
 alexnet.fit(train_ds,
             epochs=50,
