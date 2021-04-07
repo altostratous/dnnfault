@@ -44,7 +44,9 @@ class DenseQuantizeConfig(quantization.keras.QuantizeConfig):
       layer.kernel = quantize_weights[0]
 
     def set_quantize_activations(self, layer, quantize_activations):
-      pass
+      # Add this line for each item returned in `get_activations_and_quantizers`
+      # , in the same order.
+      layer.activation = quantize_activations[0]
 
     # Configure how to quantize outputs (may be equivalent to activations).
     def get_output_quantizers(self, layer):
