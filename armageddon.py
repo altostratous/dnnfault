@@ -1,5 +1,28 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
+import torch.nn.qat as nnqat
+from torch.quantization import get_qat_module_mappings
+
+
+class InjectionConv2d(nnqat.Conv2d):
+
+    def forward(self, input):
+        return super().forward(input)
+
+
+class InjectionLinear(nnqat.Linear):
+
+    def forward(self, input):
+        fake_quant_weights = self.weight_fake_quant(self.weight)
+        discrete =  + self.weight_fake_quant.zero_point
+
+        torch.clamp(
+            fake_quant_weights // self.weight_fake_quant.scale,
+            self.weight_fake_quant.quant_min,
+            self.weight_fake_quant.quant_max) + self.weight_fake_quant.zero_point
+        torch.randint(0, 1, discrete.shape)
+        return F.linear(input, fake_quant_weights, self.bias)
 
 
 class AlexNet(nn.Module):
@@ -44,28 +67,27 @@ class AlexNet(nn.Module):
         return x
 
 
-# create a model instance
 model_fp32 = AlexNet()
-
-# model must be set to train mode for QAT logic to work
 model_fp32.train()
-
-# attach a global qconfig, which contains information about what kind
-# of observers to attach. Use 'fbgemm' for server inference and
-# 'qnnpack' for mobile inference. Other quantization configurations such
-# as selecting symmetric or assymetric quantization and MinMax or L2Norm
-# calibration techniques can be specified here.
 model_fp32.qconfig = torch.quantization.get_default_qat_qconfig('fbgemm')
+mapping = get_qat_module_mappings()
 
-# fuse the activations to preceding layers, where applicable
-# this needs to be done manually depending on the model architecture
-# model_fp32_fused = torch.quantization.fuse_modules(model_fp32,
-#                                                    [['conv', 'bn', 'relu']])
 
-# Prepare the model for QAT. This inserts observers and fake_quants in
-# the model that will observe weight and activation tensors during calibration.
-# model_fp32_prepared = torch.quantization.prepare_qat(model_fp32_fused)
-model_fp32_prepared = torch.quantization.prepare_qat(model_fp32)
+
+
+
+mapping.update({
+    nn.Conv2d: InjectionConv2d,
+    nn.Linear: InjectionLinear
+})
+
+# model_fp32_prepared = torch.quantization.prepare_qat(model_fp32, mapping=mapping)
+model_fp32_prepared = model_fp32
+# model_out_path = "model.pth"
+# if os.path.exists(model_out_path):
+#     state_dict = torch.load(model_out_path)
+#     model_fp32_prepared.load_state_dict(state_dict)
+#     print("Checkpoint loaded from {}".format(model_out_path))
 
 import torch.optim as optim
 import torch.utils.data
@@ -78,7 +100,6 @@ import argparse
 
 from misc import progress_bar
 
-
 CLASSES = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
 
 
@@ -86,8 +107,8 @@ def main():
     parser = argparse.ArgumentParser(description="cifar-10 with PyTorch")
     parser.add_argument('--lr', default=0.001, type=float, help='learning rate')
     parser.add_argument('--epoch', default=200, type=int, help='number of epochs tp train for')
-    parser.add_argument('--trainBatchSize', default=32, type=int, help='training batch size')
-    parser.add_argument('--testBatchSize', default=32, type=int, help='testing batch size')
+    parser.add_argument('--trainBatchSize', default=128, type=int, help='training batch size')
+    parser.add_argument('--testBatchSize', default=128, type=int, help='testing batch size')
     parser.add_argument('--cuda', default=torch.cuda.is_available(), type=bool, help='whether cuda is in use')
     args = parser.parse_args()
 
@@ -121,9 +142,15 @@ class Solver(object):
             transforms.ToTensor()
         ])
         train_set = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=train_transform)
-        self.train_loader = torch.utils.data.DataLoader(dataset=train_set, batch_size=self.train_batch_size, shuffle=True)
+        self.train_loader = torch.utils.data.DataLoader(dataset=train_set, batch_size=self.train_batch_size,
+                                                        # sampler=range(1),
+                                                        shuffle=True
+                                                        )
         test_set = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=test_transform)
-        self.test_loader = torch.utils.data.DataLoader(dataset=test_set, batch_size=self.test_batch_size, shuffle=False)
+        self.test_loader = torch.utils.data.DataLoader(dataset=test_set, batch_size=self.test_batch_size,
+                                                       # sampler=range(1),
+                                                       shuffle=True
+                                                       )
 
     def load_model(self):
         if self.cuda:
@@ -161,7 +188,6 @@ class Solver(object):
 
             progress_bar(batch_num, len(self.train_loader), 'Loss: %.4f | Acc: %.3f%% (%d/%d)'
                          % (train_loss / (batch_num + 1), 100. * train_correct / total, train_correct, total))
-
         return train_loss, train_correct / total
 
     def test(self):
@@ -188,7 +214,7 @@ class Solver(object):
 
     def save(self):
         model_out_path = "model.pth"
-        torch.save(self.model, model_out_path)
+        torch.save(self.model.state_dict(), model_out_path)
         print("Checkpoint saved to {}".format(model_out_path))
 
     def run(self):
@@ -196,9 +222,9 @@ class Solver(object):
         self.load_model()
         accuracy = 0
         for epoch in range(1, self.epochs + 1):
-            self.scheduler.step(epoch)
             print("\n===> epoch: %d/200" % epoch)
             train_result = self.train()
+            self.scheduler.step()
             print(train_result)
             test_result = self.test()
             accuracy = max(accuracy, test_result[1])
