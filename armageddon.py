@@ -1,4 +1,5 @@
 import os
+from copy import copy
 from random import choices, choice, randint, shuffle
 
 from itertools import chain
@@ -39,7 +40,7 @@ class InjectionMixin:
 
 
 class RandomBET(InjectionMixin):
-    berr = 0.00
+    berr = 0.01
 
     def manipulate_float(self, weight):
         return torch.clamp(weight, -0.1, 0.1)
@@ -55,19 +56,17 @@ class RandomBET(InjectionMixin):
     
     
 class RowHammerSprayAttack(InjectionMixin):
-    berr = 0.00
-
-    def manipulate_float(self, weight):
-        return torch.clamp(weight, -0.1, 0.1)
+    berr = 0.007
 
     def manipulate_quantized(self, signed_quantized):
         quantized = signed_quantized + 128
-        mask = torch.rand(quantized.shape) > self.berr * torch.randint(0, 2, (1,)) * 8
+        mask = torch.rand(quantized.shape) > self.berr * 8
         bit_index = torch.randint(0, 8, quantized.shape)
         bit_magnitude = 2 ** bit_index
         flip_sign = torch.masked_fill(- (torch.floor(quantized / bit_magnitude) % 2 - 0.5) * 2, mask, 0)
         additive = flip_sign * bit_magnitude
         return (quantized + additive) - 128
+
 
 class BlindRowHammerAttack(InjectionMixin):
 
@@ -219,17 +218,17 @@ model_fp32 = AlexNet()
 model_fp32.train()
 model_fp32.qconfig = torch.quantization.get_default_qat_qconfig('fbgemm')
 
-RandomBETMapping = get_qat_module_mappings()
+RandomBETMapping = copy(get_qat_module_mappings())
 RandomBETMapping.update({
     nn.Conv2d: RandomBETConv2D,
     nn.Linear: RandomBETLinear
 })
-BlindRowHammerAttackMapping = get_qat_module_mappings()
+BlindRowHammerAttackMapping = copy(get_qat_module_mappings())
 BlindRowHammerAttackMapping.update({
     nn.Conv2d: BlindRowHammerAttackConv2D,
     nn.Linear: BlindRowHammerAttackLinear
 })
-RowHammerSprayAttackMapping = get_qat_module_mappings()
+RowHammerSprayAttackMapping = copy(get_qat_module_mappings())
 RowHammerSprayAttackMapping.update({
     nn.Conv2d: RowHammerSprayAttackConv2D,
     nn.Linear: RowHammerSprayAttackLinear
@@ -237,12 +236,16 @@ RowHammerSprayAttackMapping.update({
 
 model_out_path = "big_alexnet.pth"
 if os.path.exists(model_out_path):
-    state_dict = torch.load(model_out_path)
+    if torch.cuda.is_available():
+        state_dict = torch.load(model_out_path)
+    else:
+        state_dict = torch.load(model_out_path, map_location=torch.device('cpu'))
     model_fp32.load_state_dict(state_dict)
     print("Checkpoint loaded from {}".format(model_out_path))
 
 # model_fp32_prepared = torch.quantization.prepare_qat(model_fp32, mapping=RandomBETMapping)
 # model_fp32_prepared = torch.quantization.prepare_qat(model_fp32, mapping=BlindRowHammerAttackMapping)
+# model_fp32_prepared = torch.quantization.prepare_qat(model_fp32, mapping=RowHammerSprayAttackMapping)
 model_fp32_prepared = torch.quantization.prepare_qat(model_fp32)
 # model_fp32_prepared = model_fp32
 
