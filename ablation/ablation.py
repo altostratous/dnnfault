@@ -1,4 +1,5 @@
 import os
+from collections import OrderedDict
 from copy import copy
 from random import choices, choice, randint, shuffle
 
@@ -161,31 +162,41 @@ class AlexNet(nn.Module):
     def __init__(self, num_classes: int = 10) -> None:
         super(AlexNet, self).__init__()
         self.quant = torch.quantization.QuantStub()
-        self.features = nn.Sequential(
-            nn.Conv2d(3, 64, kernel_size=11, stride=4, padding=2),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size=3, stride=2),
-            nn.Conv2d(64, 192, kernel_size=5, padding=2),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size=3, stride=2),
-            nn.Conv2d(192, 384, kernel_size=3, padding=1),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(384, 256, kernel_size=3, padding=1),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(256, 256, kernel_size=3, padding=1),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size=3, stride=2),
-        )
+        self.features = nn.Sequential(OrderedDict({
+            '0': nn.Conv2d(3, 64, kernel_size=11, stride=4, padding=2),
+            '1': nn.ReLU(inplace=True),
+            '2': nn.MaxPool2d(kernel_size=3, stride=2),
+            'bn_1': nn.BatchNorm2d(64),
+            'do_1': nn.Dropout(),
+            '3': nn.Conv2d(64, 192, kernel_size=5, padding=2),
+            '4': nn.ReLU(inplace=True),
+            '5': nn.MaxPool2d(kernel_size=3, stride=2),
+            'bn_2': nn.BatchNorm2d(192),
+            'do_2': nn.Dropout(),
+            '6': nn.Conv2d(192, 384, kernel_size=3, padding=1),
+            '7': nn.ReLU(inplace=True),
+            'bn_3': nn.BatchNorm2d(384),
+            'do_3': nn.Dropout(),
+            '8': nn.Conv2d(384, 256, kernel_size=3, padding=1),
+            '9': nn.ReLU(inplace=True),
+            'bn_4': nn.BatchNorm2d(256),
+            'do_4': nn.Dropout(),
+            '10': nn.Conv2d(256, 256, kernel_size=3, padding=1),
+            '11': nn.ReLU(inplace=True),
+            '12': nn.MaxPool2d(kernel_size=3, stride=2),
+        }))
         self.avgpool = nn.AdaptiveAvgPool2d((6, 6))
-        self.classifier = nn.Sequential(
-            nn.Dropout(),
-            nn.Linear(256 * 6 * 6, 4096),
-            nn.ReLU(inplace=True),
-            nn.Dropout(),
-            nn.Linear(4096, 4096),
-            nn.ReLU(inplace=True),
-            nn.Linear(4096, num_classes),
-        )
+        self.classifier = nn.Sequential(OrderedDict({
+            'bn_5': nn.BatchNorm2d(256),
+            '0': nn.Dropout(),
+            '1': nn.Linear(256 * 6 * 6, 4096),
+            '2': nn.ReLU(inplace=True),
+            'bn_6': nn.BatchNorm2d(256),
+            '3': nn.Dropout(),
+            '4': nn.Linear(4096, 4096),
+            '5': nn.ReLU(inplace=True),
+            '6': nn.Linear(4096, num_classes),
+        }))
         self.dequant = torch.quantization.DeQuantStub()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -246,8 +257,18 @@ if os.path.exists(model_out_path):
 # model_fp32_prepared = torch.quantization.prepare_qat(model_fp32, mapping=RandomBETMapping)
 # model_fp32_prepared = torch.quantization.prepare_qat(model_fp32, mapping=BlindRowHammerAttackMapping)
 # model_fp32_prepared = torch.quantization.prepare_qat(model_fp32, mapping=RowHammerSprayAttackMapping)
-model_fp32_prepared = torch.quantization.prepare_qat(model_fp32)
-# model_fp32_prepared = model_fp32
+# model_fp32_prepared = torch.quantization.prepare_qat(model_fp32)
+model_fp32_prepared = model_fp32
+
+# model_out_path = "qat.pth"
+# if os.path.exists(model_out_path):
+#     if torch.cuda.is_available():
+#         state_dict = torch.load(model_out_path)
+#     else:
+#         state_dict = torch.load(model_out_path, map_location=torch.device('cpu'))
+#     model_fp32_prepared.load_state_dict(state_dict, strict=False)
+#     print("Checkpoint loaded from {}".format(model_out_path))
+
 
 import torch.optim as optim
 import torch.utils.data
