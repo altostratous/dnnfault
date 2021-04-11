@@ -166,31 +166,31 @@ class AlexNet(nn.Module):
             '0': nn.Conv2d(3, 64, kernel_size=11, stride=4, padding=2),
             '1': nn.ReLU(inplace=True),
             '2': nn.MaxPool2d(kernel_size=3, stride=2),
-            'bn_1': nn.BatchNorm2d(64),
+            'do_1': nn.Dropout(),
             '3': nn.Conv2d(64, 192, kernel_size=5, padding=2),
             '4': nn.ReLU(inplace=True),
             '5': nn.MaxPool2d(kernel_size=3, stride=2),
-            'bn_2': nn.BatchNorm2d(192),
+            'do_2': nn.Dropout(),
             '6': nn.Conv2d(192, 384, kernel_size=3, padding=1),
             '7': nn.ReLU(inplace=True),
-            'bn_3': nn.BatchNorm2d(384),
+            'do_3': nn.Dropout(),
             '8': nn.Conv2d(384, 256, kernel_size=3, padding=1),
             '9': nn.ReLU(inplace=True),
-            'bn_4': nn.BatchNorm2d(256),
+            'do_4': nn.Dropout(),
             '10': nn.Conv2d(256, 256, kernel_size=3, padding=1),
             '11': nn.ReLU(inplace=True),
             '12': nn.MaxPool2d(kernel_size=3, stride=2),
         }))
         self.avgpool = nn.AdaptiveAvgPool2d((6, 6))
-        self.classifier = nn.Sequential(
-            nn.Dropout(),
-            nn.Linear(256 * 6 * 6, 4096),
-            nn.ReLU(inplace=True),
-            nn.Dropout(),
-            nn.Linear(4096, 4096),
-            nn.ReLU(inplace=True),
-            nn.Linear(4096, num_classes),
-        )
+        self.classifier = nn.Sequential(OrderedDict({
+            '0': nn.Dropout(),
+            '1': nn.Linear(256 * 6 * 6, 4096),
+            '2': nn.ReLU(inplace=True),
+            '3': nn.Dropout(),
+            '4': nn.Linear(4096, 4096),
+            '5': nn.ReLU(inplace=True),
+            '6': nn.Linear(4096, num_classes),
+        }))
         self.dequant = torch.quantization.DeQuantStub()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -238,30 +238,30 @@ RowHammerSprayAttackMapping.update({
     nn.Conv2d: RowHammerSprayAttackConv2D,
     nn.Linear: RowHammerSprayAttackLinear
 })
-#
-# model_out_path = "big_alexnet.pth"
-# if os.path.exists(model_out_path):
-#     if torch.cuda.is_available():
-#         state_dict = torch.load(model_out_path)
-#     else:
-#         state_dict = torch.load(model_out_path, map_location=torch.device('cpu'))
-#     model_fp32.load_state_dict(state_dict)
-#     print("Checkpoint loaded from {}".format(model_out_path))
 
-# model_fp32_prepared = torch.quantization.prepare_qat(model_fp32, mapping=RandomBETMapping)
-# model_fp32_prepared = torch.quantization.prepare_qat(model_fp32, mapping=BlindRowHammerAttackMapping)
-# model_fp32_prepared = torch.quantization.prepare_qat(model_fp32, mapping=RowHammerSprayAttackMapping)
-model_fp32_prepared = torch.quantization.prepare_qat(model_fp32)
-# model_fp32_prepared = model_fp32
-
-model_out_path = "qat.pth"
+model_out_path = "big_alexnet.pth"
 if os.path.exists(model_out_path):
     if torch.cuda.is_available():
         state_dict = torch.load(model_out_path)
     else:
         state_dict = torch.load(model_out_path, map_location=torch.device('cpu'))
-    model_fp32_prepared.load_state_dict(state_dict, strict=False)
+    model_fp32.load_state_dict(state_dict, strict=False)
     print("Checkpoint loaded from {}".format(model_out_path))
+
+# model_fp32_prepared = torch.quantization.prepare_qat(model_fp32, mapping=RandomBETMapping)
+# model_fp32_prepared = torch.quantization.prepare_qat(model_fp32, mapping=BlindRowHammerAttackMapping)
+# model_fp32_prepared = torch.quantization.prepare_qat(model_fp32, mapping=RowHammerSprayAttackMapping)
+# model_fp32_prepared = torch.quantization.prepare_qat(model_fp32)
+model_fp32_prepared = model_fp32
+
+# model_out_path = "qat.pth"
+# if os.path.exists(model_out_path):
+#     if torch.cuda.is_available():
+#         state_dict = torch.load(model_out_path)
+#     else:
+#         state_dict = torch.load(model_out_path, map_location=torch.device('cpu'))
+#     model_fp32_prepared.load_state_dict(state_dict, strict=False)
+#     print("Checkpoint loaded from {}".format(model_out_path))
 
 
 import torch.optim as optim
@@ -318,13 +318,13 @@ class Solver(object):
         ])
         train_set = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=train_transform)
         self.train_loader = torch.utils.data.DataLoader(dataset=train_set, batch_size=self.train_batch_size,
-                                                        sampler=range(self.train_batch_size),
-                                                        # shuffle=True
+                                                        # sampler=range(self.train_batch_size),
+                                                        shuffle=True
                                                         )
         test_set = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=test_transform)
         self.test_loader = torch.utils.data.DataLoader(dataset=test_set, batch_size=self.test_batch_size,
-                                                       sampler=range(self.test_batch_size),
-                                                       # shuffle=True
+                                                       # sampler=range(self.test_batch_size),
+                                                       shuffle=True
                                                        )
 
     def load_model(self):
@@ -419,7 +419,7 @@ class Solver(object):
         return test_loss, test_correct / total
 
     def save(self):
-        model_out_path = "qat.pth"
+        model_out_path = "dropout.pth"
         torch.save(self.model.state_dict(), model_out_path)
         print("Checkpoint saved to {}".format(model_out_path))
 
