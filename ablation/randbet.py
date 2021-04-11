@@ -1,5 +1,4 @@
 import os
-from collections import OrderedDict
 from copy import copy
 from random import choices, choice, randint, shuffle
 
@@ -40,11 +39,21 @@ class InjectionMixin:
         return quantized
 
 
+class WeightClipper(object):
+
+    def __init__(self, frequency=5):
+        self.frequency = frequency
+
+    def __call__(self, module):
+        # filter the variables to get the ones you want
+        if hasattr(module, 'weight'):
+            w = module.weight.data
+            w = w.clamp(-0.1, 0.1)
+            module.weight.data = w
+
+
 class RandomBET(InjectionMixin):
     berr = 0.01
-
-    def manipulate_float(self, weight):
-        return torch.clamp(weight, -0.1, 0.1)
 
     def manipulate_quantized(self, signed_quantized):
         quantized = signed_quantized + 128
@@ -162,25 +171,21 @@ class AlexNet(nn.Module):
     def __init__(self, num_classes: int = 10) -> None:
         super(AlexNet, self).__init__()
         self.quant = torch.quantization.QuantStub()
-        self.features = nn.Sequential(OrderedDict({
-            '0': nn.Conv2d(3, 64, kernel_size=11, stride=4, padding=2),
-            '1': nn.ReLU(inplace=True),
-            '2': nn.MaxPool2d(kernel_size=3, stride=2),
-            'bn_1': nn.BatchNorm2d(64),
-            '3': nn.Conv2d(64, 192, kernel_size=5, padding=2),
-            '4': nn.ReLU(inplace=True),
-            '5': nn.MaxPool2d(kernel_size=3, stride=2),
-            'bn_2': nn.BatchNorm2d(192),
-            '6': nn.Conv2d(192, 384, kernel_size=3, padding=1),
-            '7': nn.ReLU(inplace=True),
-            'bn_3': nn.BatchNorm2d(384),
-            '8': nn.Conv2d(384, 256, kernel_size=3, padding=1),
-            '9': nn.ReLU(inplace=True),
-            'bn_4': nn.BatchNorm2d(256),
-            '10': nn.Conv2d(256, 256, kernel_size=3, padding=1),
-            '11': nn.ReLU(inplace=True),
-            '12': nn.MaxPool2d(kernel_size=3, stride=2),
-        }))
+        self.features = nn.Sequential(
+            nn.Conv2d(3, 64, kernel_size=11, stride=4, padding=2),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=3, stride=2),
+            nn.Conv2d(64, 192, kernel_size=5, padding=2),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=3, stride=2),
+            nn.Conv2d(192, 384, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(384, 256, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(256, 256, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=3, stride=2),
+        )
         self.avgpool = nn.AdaptiveAvgPool2d((6, 6))
         self.classifier = nn.Sequential(
             nn.Dropout(),
@@ -238,31 +243,21 @@ RowHammerSprayAttackMapping.update({
     nn.Conv2d: RowHammerSprayAttackConv2D,
     nn.Linear: RowHammerSprayAttackLinear
 })
-#
-# model_out_path = "big_alexnet.pth"
-# if os.path.exists(model_out_path):
-#     if torch.cuda.is_available():
-#         state_dict = torch.load(model_out_path)
-#     else:
-#         state_dict = torch.load(model_out_path, map_location=torch.device('cpu'))
-#     model_fp32.load_state_dict(state_dict)
-#     print("Checkpoint loaded from {}".format(model_out_path))
 
-# model_fp32_prepared = torch.quantization.prepare_qat(model_fp32, mapping=RandomBETMapping)
-# model_fp32_prepared = torch.quantization.prepare_qat(model_fp32, mapping=BlindRowHammerAttackMapping)
-# model_fp32_prepared = torch.quantization.prepare_qat(model_fp32, mapping=RowHammerSprayAttackMapping)
-model_fp32_prepared = torch.quantization.prepare_qat(model_fp32)
-# model_fp32_prepared = model_fp32
-
-model_out_path = "qat.pth"
+model_out_path = "big_alexnet.pth"
 if os.path.exists(model_out_path):
     if torch.cuda.is_available():
         state_dict = torch.load(model_out_path)
     else:
         state_dict = torch.load(model_out_path, map_location=torch.device('cpu'))
-    model_fp32_prepared.load_state_dict(state_dict, strict=False)
+    model_fp32.load_state_dict(state_dict)
     print("Checkpoint loaded from {}".format(model_out_path))
 
+model_fp32_prepared = torch.quantization.prepare_qat(model_fp32, mapping=RandomBETMapping)
+# model_fp32_prepared = torch.quantization.prepare_qat(model_fp32, mapping=BlindRowHammerAttackMapping)
+# model_fp32_prepared = torch.quantization.prepare_qat(model_fp32, mapping=RowHammerSprayAttackMapping)
+# model_fp32_prepared = torch.quantization.prepare_qat(model_fp32)
+# model_fp32_prepared = model_fp32
 
 import torch.optim as optim
 import torch.utils.data
@@ -318,13 +313,13 @@ class Solver(object):
         ])
         train_set = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=train_transform)
         self.train_loader = torch.utils.data.DataLoader(dataset=train_set, batch_size=self.train_batch_size,
-                                                        sampler=range(self.train_batch_size),
-                                                        # shuffle=True
+                                                        # sampler=range(self.train_batch_size),
+                                                        shuffle=True
                                                         )
         test_set = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=test_transform)
         self.test_loader = torch.utils.data.DataLoader(dataset=test_set, batch_size=self.test_batch_size,
-                                                       sampler=range(self.test_batch_size),
-                                                       # shuffle=True
+                                                       # sampler=range(self.test_batch_size),
+                                                       shuffle=True
                                                        )
 
     def load_model(self):
@@ -424,12 +419,14 @@ class Solver(object):
         print("Checkpoint saved to {}".format(model_out_path))
 
     def run(self):
+        clipper = WeightClipper()
         self.load_data()
         self.load_model()
         accuracy = 0
         for epoch in range(1, self.epochs + 1):
             print("\n===> epoch: %d/200" % epoch)
             train_result = self.train()
+            self.model.apply(clipper)
             self.scheduler.step()
             print(train_result)
             # self.profile_grad()
