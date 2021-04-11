@@ -60,7 +60,7 @@ class RandomBET(InjectionMixin):
         device = quantized.get_device()
         rand = torch.rand(quantized.shape, device=device)
         mask = rand > self.berr * torch.randint(0, 2, (1,), device=device) * 8
-        bit_index = torch.randint(0, 8, quantized.shape)
+        bit_index = torch.randint(0, 8, quantized.shape, device=device)
         bit_magnitude = 2 ** bit_index
         flip_sign = torch.masked_fill(- (torch.floor(quantized / bit_magnitude) % 2 - 0.5) * 2, mask, 0)
         additive = flip_sign * bit_magnitude
