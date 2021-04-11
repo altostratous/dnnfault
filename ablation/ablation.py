@@ -251,7 +251,7 @@ if os.path.exists(model_out_path):
         state_dict = torch.load(model_out_path)
     else:
         state_dict = torch.load(model_out_path, map_location=torch.device('cpu'))
-    model_fp32.load_state_dict(state_dict)
+    model_fp32.load_state_dict(state_dict, strict=False)
     print("Checkpoint loaded from {}".format(model_out_path))
 
 # model_fp32_prepared = torch.quantization.prepare_qat(model_fp32, mapping=RandomBETMapping)
