@@ -187,11 +187,11 @@ class AlexNet(nn.Module):
         }))
         self.avgpool = nn.AdaptiveAvgPool2d((6, 6))
         self.classifier = nn.Sequential(OrderedDict({
-            'bn_5': nn.BatchNorm2d(256),
+            # 'bn_5': nn.BatchNorm2d(256),
             '0': nn.Dropout(),
             '1': nn.Linear(256 * 6 * 6, 4096),
             '2': nn.ReLU(inplace=True),
-            'bn_6': nn.BatchNorm2d(256),
+            # 'bn_6': nn.BatchNorm2d(256),
             '3': nn.Dropout(),
             '4': nn.Linear(4096, 4096),
             '5': nn.ReLU(inplace=True),
