@@ -246,20 +246,29 @@ RowHammerSprayAttackMapping.update({
     nn.Linear: RowHammerSprayAttackLinear
 })
 
-model_out_path = "randbet.pth"
-if os.path.exists(model_out_path):
-    if torch.cuda.is_available():
-        state_dict = torch.load(model_out_path)
-    else:
-        state_dict = torch.load(model_out_path, map_location=torch.device('cpu'))
-    model_fp32.load_state_dict(state_dict)
-    print("Checkpoint loaded from {}".format(model_out_path))
+# model_out_path = "randbet.pth"
+# if os.path.exists(model_out_path):
+#     if torch.cuda.is_available():
+#         state_dict = torch.load(model_out_path)
+#     else:
+#         state_dict = torch.load(model_out_path, map_location=torch.device('cpu'))
+#     model_fp32.load_state_dict(state_dict)
+#     print("Checkpoint loaded from {}".format(model_out_path))
 
 model_fp32_prepared = torch.quantization.prepare_qat(model_fp32, mapping=RandomBETMapping)
 # model_fp32_prepared = torch.quantization.prepare_qat(model_fp32, mapping=BlindRowHammerAttackMapping)
 # model_fp32_prepared = torch.quantization.prepare_qat(model_fp32, mapping=RowHammerSprayAttackMapping)
 # model_fp32_prepared = torch.quantization.prepare_qat(model_fp32)
 # model_fp32_prepared = model_fp32
+
+model_out_path = "randbet.pth"
+if os.path.exists(model_out_path):
+    if torch.cuda.is_available():
+        state_dict = torch.load(model_out_path)
+    else:
+        state_dict = torch.load(model_out_path, map_location=torch.device('cpu'))
+    model_fp32_prepared.load_state_dict(state_dict)
+    print("Checkpoint loaded from {}".format(model_out_path))
 
 import torch.optim as optim
 import torch.utils.data
