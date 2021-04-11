@@ -246,7 +246,7 @@ RowHammerSprayAttackMapping.update({
     nn.Linear: RowHammerSprayAttackLinear
 })
 
-model_out_path = "big_alexnet.pth"
+model_out_path = "randbet.pth"
 if os.path.exists(model_out_path):
     if torch.cuda.is_available():
         state_dict = torch.load(model_out_path)
@@ -416,7 +416,7 @@ class Solver(object):
         return test_loss, test_correct / total
 
     def save(self):
-        model_out_path = "qat.pth"
+        model_out_path = "randbet.pth"
         torch.save(self.model.state_dict(), model_out_path)
         print("Checkpoint saved to {}".format(model_out_path))
 

@@ -239,7 +239,7 @@ RowHammerSprayAttackMapping.update({
     nn.Linear: RowHammerSprayAttackLinear
 })
 
-model_out_path = "big_alexnet.pth"
+model_out_path = "dropout.pth"
 if os.path.exists(model_out_path):
     if torch.cuda.is_available():
         state_dict = torch.load(model_out_path)
