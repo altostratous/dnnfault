@@ -167,7 +167,7 @@ class BatchAblation(nn.Module):
         self.q = q
 
     def forward(self, input: Tensor) -> Tensor:
-        if random.random() > self.q:
+        if random.random() > self.q or not self.training:
             return input
         reduction_dims = tuple(d for d in range(len(input.shape)) if d != 1)
         repeat_interleaved = 1
@@ -284,7 +284,7 @@ RowHammerSprayAttackMapping.update({
 model_fp32_prepared = torch.quantization.prepare_qat(model_fp32)
 # model_fp32_prepared = model_fp32
 
-model_out_path = "randbet.pth"
+model_out_path = "ablationv2.pth"
 if os.path.exists(model_out_path):
     if torch.cuda.is_available():
         state_dict = torch.load(model_out_path)
