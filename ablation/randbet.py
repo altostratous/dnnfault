@@ -287,7 +287,7 @@ CLASSES = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship'
 def main():
     parser = argparse.ArgumentParser(description="cifar-10 with PyTorch")
     parser.add_argument('--lr', default=0.001, type=float, help='learning rate')
-    parser.add_argument('--epoch', default=30, type=int, help='number of epochs tp train for')
+    parser.add_argument('--epoch', default=300, type=int, help='number of epochs tp train for')
     parser.add_argument('--trainBatchSize', default=128, type=int, help='training batch size')
     parser.add_argument('--testBatchSize', default=128, type=int, help='testing batch size')
     parser.add_argument('--cuda', default=torch.cuda.is_available(), type=bool, help='whether cuda is in use')
@@ -435,7 +435,7 @@ class Solver(object):
         self.load_model()
         accuracy = 0
         for epoch in range(1, self.epochs + 1):
-            print("\n===> epoch: %d/200" % epoch)
+            print("\n===> epoch: %d/300" % epoch)
             train_result = self.train()
             self.model.apply(clipper)
             self.scheduler.step()
@@ -443,7 +443,7 @@ class Solver(object):
             # self.profile_grad()
             test_result = self.test()
             accuracy = max(accuracy, test_result[1])
-            if epoch == self.epochs:
+            if epoch % 5 == 0:
                 print("===> BEST ACC. PERFORMANCE: %.3f%%" % (accuracy * 100))
                 self.save()
 

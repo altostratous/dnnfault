@@ -239,29 +239,29 @@ RowHammerSprayAttackMapping.update({
     nn.Linear: RowHammerSprayAttackLinear
 })
 
+# model_out_path = "dropout.pth"
+# if os.path.exists(model_out_path):
+#     if torch.cuda.is_available():
+#         state_dict = torch.load(model_out_path)
+#     else:
+#         state_dict = torch.load(model_out_path, map_location=torch.device('cpu'))
+#     model_fp32.load_state_dict(state_dict, strict=False)
+#     print("Checkpoint loaded from {}".format(model_out_path))
+
+# model_fp32_prepared = torch.quantization.prepare_qat(model_fp32, mapping=RandomBETMapping)
+# model_fp32_prepared = torch.quantization.prepare_qat(model_fp32, mapping=BlindRowHammerAttackMapping)
+# model_fp32_prepared = torch.quantization.prepare_qat(model_fp32, mapping=RowHammerSprayAttackMapping)
+model_fp32_prepared = torch.quantization.prepare_qat(model_fp32)
+# model_fp32_prepared = model_fp32
+
 model_out_path = "dropout.pth"
 if os.path.exists(model_out_path):
     if torch.cuda.is_available():
         state_dict = torch.load(model_out_path)
     else:
         state_dict = torch.load(model_out_path, map_location=torch.device('cpu'))
-    model_fp32.load_state_dict(state_dict, strict=False)
+    model_fp32_prepared.load_state_dict(state_dict, strict=False)
     print("Checkpoint loaded from {}".format(model_out_path))
-
-# model_fp32_prepared = torch.quantization.prepare_qat(model_fp32, mapping=RandomBETMapping)
-# model_fp32_prepared = torch.quantization.prepare_qat(model_fp32, mapping=BlindRowHammerAttackMapping)
-# model_fp32_prepared = torch.quantization.prepare_qat(model_fp32, mapping=RowHammerSprayAttackMapping)
-# model_fp32_prepared = torch.quantization.prepare_qat(model_fp32)
-model_fp32_prepared = model_fp32
-
-# model_out_path = "qat.pth"
-# if os.path.exists(model_out_path):
-#     if torch.cuda.is_available():
-#         state_dict = torch.load(model_out_path)
-#     else:
-#         state_dict = torch.load(model_out_path, map_location=torch.device('cpu'))
-#     model_fp32_prepared.load_state_dict(state_dict, strict=False)
-#     print("Checkpoint loaded from {}".format(model_out_path))
 
 
 import torch.optim as optim
@@ -281,7 +281,7 @@ CLASSES = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship'
 def main():
     parser = argparse.ArgumentParser(description="cifar-10 with PyTorch")
     parser.add_argument('--lr', default=0.001, type=float, help='learning rate')
-    parser.add_argument('--epoch', default=30, type=int, help='number of epochs tp train for')
+    parser.add_argument('--epoch', default=300, type=int, help='number of epochs tp train for')
     parser.add_argument('--trainBatchSize', default=128, type=int, help='training batch size')
     parser.add_argument('--testBatchSize', default=128, type=int, help='testing batch size')
     parser.add_argument('--cuda', default=torch.cuda.is_available(), type=bool, help='whether cuda is in use')
@@ -428,14 +428,14 @@ class Solver(object):
         self.load_model()
         accuracy = 0
         for epoch in range(1, self.epochs + 1):
-            print("\n===> epoch: %d/200" % epoch)
+            print("\n===> epoch: %d/300" % epoch)
             train_result = self.train()
             self.scheduler.step()
             print(train_result)
             # self.profile_grad()
             test_result = self.test()
             accuracy = max(accuracy, test_result[1])
-            if epoch == self.epochs:
+            if epoch % 5 == 0:
                 print("===> BEST ACC. PERFORMANCE: %.3f%%" % (accuracy * 100))
                 self.save()
 
