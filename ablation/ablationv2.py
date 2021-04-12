@@ -1,4 +1,5 @@
 import os
+import random
 from collections import OrderedDict
 from copy import copy
 from random import choices, choice, randint, shuffle
@@ -160,11 +161,14 @@ class RowHammerSprayAttackLinear(InjectionLinear, RowHammerSprayAttack):
 
 class BatchAblation(nn.Module):
 
-    def __init__(self, p=0.5):
+    def __init__(self, p=0.5, q=0.1):
         super().__init__()
         self.p = p
+        self.q = q
 
     def forward(self, input: Tensor) -> Tensor:
+        if random.random() > self.q:
+            return input
         reduction_dims = tuple(d for d in range(len(input.shape)) if d != 1)
         repeat_interleaved = 1
         for d in input.shape[2:]:
