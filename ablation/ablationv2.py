@@ -161,7 +161,7 @@ class RowHammerSprayAttackLinear(InjectionLinear, RowHammerSprayAttack):
 
 class BatchAblation(nn.Module):
 
-    def __init__(self, p=0.5, q=0.1):
+    def __init__(self, p=0.5, q=0.5):
         super().__init__()
         self.p = p
         self.q = q
