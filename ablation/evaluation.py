@@ -374,8 +374,8 @@ RowHammerSprayAttackMapping.update({
 })
 RowHammerUpSprayAttackMapping = copy(get_qat_module_mappings())
 RowHammerUpSprayAttackMapping.update({
-    nn.Conv2d: UpRowHammerSprayAttackConv2D,
-    nn.Linear: UpRowHammerSprayAttackLinear
+    nn.Conv2d: RowHammerUpSprayAttackConv2D,
+    nn.Linear: RowHammerUpSprayAttackLinear
 })
 
 # model_out_path = "ablation.pth"
