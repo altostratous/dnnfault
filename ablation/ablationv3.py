@@ -187,7 +187,7 @@ class BatchAblation(nn.Module):
 
 class Gaussian(nn.Module):
 
-    def __init__(self, sigma=0.25, q=1):
+    def __init__(self, sigma=0.1, q=1):
         super().__init__()
         self.sigma = sigma
         self.q = q
@@ -230,10 +230,10 @@ class AlexNet(nn.Module):
             '1': nn.Linear(256 * 6 * 6, 4096),
             '2': nn.ReLU(inplace=True),
             # 'ba_6': BatchAblation(),
-            '3': nn.Dropout(p=0.8),
+            '3': nn.Dropout(p=0.5),
             '4': nn.Linear(4096, 4096),
             '5': nn.ReLU(inplace=True),
-            '6': nn.Dropout(p=0.8),
+            '6': nn.Dropout(p=0.5),
             # 'ba_7': BatchAblation(),
             '7': nn.Linear(4096, num_classes),
         }))
