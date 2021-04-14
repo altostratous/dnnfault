@@ -1,6 +1,7 @@
 import os
 import pickle
 import random
+import sys
 from collections import OrderedDict
 from copy import copy
 from random import choices, choice, randint, shuffle
@@ -13,6 +14,9 @@ import torch.nn.functional as F
 import torch.nn.qat as nnqat
 from torch import Tensor
 from torch.quantization import get_qat_module_mappings
+
+
+attack = sys.argv[1]
 
 
 class InjectionMixin:
@@ -68,7 +72,21 @@ class RowHammerSprayAttack(InjectionMixin):
         bit_index = torch.randint(0, 8, quantized.shape)
         bit_magnitude = 2 ** bit_index
         flip_sign = torch.masked_fill(- (torch.floor(quantized / bit_magnitude) % 2 - 0.5) * 2, mask, 0)
-        flip_sign = torch.max(flip_sign, torch.zeros(flip_sign.shape))
+        # flip_sign = torch.max(flip_sign, torch.zeros(flip_sign.shape))
+        additive = flip_sign * bit_magnitude
+        return (quantized + additive) - 128
+
+
+class RowHammerUpSprayAttack(InjectionMixin):
+    berr = 0.01
+
+    def manipulate_quantized(self, signed_quantized):
+        quantized = signed_quantized + 128
+        mask = torch.rand(quantized.shape) > self.berr * 8
+        bit_index = torch.randint(0, 8, quantized.shape)
+        bit_magnitude = 2 ** bit_index
+        flip_sign = torch.masked_fill(- (torch.floor(quantized / bit_magnitude) % 2 - 0.5) * 2, mask, 0)
+        # flip_sign = torch.max(flip_sign, torch.zeros(flip_sign.shape))
         additive = flip_sign * bit_magnitude
         return (quantized + additive) - 128
 
@@ -158,6 +176,13 @@ class RowHammerSprayAttackConv2D(InjectionConv2d, RowHammerSprayAttack):
 
 
 class RowHammerSprayAttackLinear(InjectionLinear, RowHammerSprayAttack):
+    pass
+
+class RowHammerUpSprayAttackConv2D(InjectionConv2d, RowHammerUpSprayAttack):
+    pass
+
+
+class RowHammerUpSprayAttackLinear(InjectionLinear, RowHammerUpSprayAttack):
     pass
 
 
@@ -347,6 +372,11 @@ RowHammerSprayAttackMapping.update({
     nn.Conv2d: RowHammerSprayAttackConv2D,
     nn.Linear: RowHammerSprayAttackLinear
 })
+RowHammerUpSprayAttackMapping = copy(get_qat_module_mappings())
+RowHammerUpSprayAttackMapping.update({
+    nn.Conv2d: UpRowHammerSprayAttackConv2D,
+    nn.Linear: UpRowHammerSprayAttackLinear
+})
 
 # model_out_path = "ablation.pth"
 # if os.path.exists(model_out_path):
@@ -360,10 +390,18 @@ RowHammerSprayAttackMapping.update({
 # model_fp32_prepared = torch.quantization.prepare_qat(model_fp32, mapping=RandomBETMapping)
 # model_fp32_prepared = torch.quantization.prepare_qat(model_fp32, mapping=BlindRowHammerAttackMapping)
 # model_fp32_prepared = torch.quantization.prepare_qat(model_fp32, mapping=RowHammerSprayAttackMapping)
-# model_fp32_prepared_smoothing = torch.quantization.prepare_qat(model_fp32_smoothing, mapping=RowHammerSprayAttackMapping)
-model_fp32_prepared_smoothing = torch.quantization.prepare_qat(model_fp32_smoothing)
-# model_fp32_prepared_randbet = torch.quantization.prepare_qat(model_fp32_randbet, mapping=RowHammerSprayAttackMapping)
-model_fp32_prepared_randbet = torch.quantization.prepare_qat(model_fp32_randbet)
+if attack == '--attack=none':
+    print(attack)
+    model_fp32_prepared_smoothing = torch.quantization.prepare_qat(model_fp32_smoothing)
+    model_fp32_prepared_randbet = torch.quantization.prepare_qat(model_fp32_randbet)
+elif attack == '--attack=upspray':
+    print(attack)
+    model_fp32_prepared_smoothing = torch.quantization.prepare_qat(model_fp32_smoothing, mapping=RowHammerUpSprayAttackMapping)
+    model_fp32_prepared_randbet = torch.quantization.prepare_qat(model_fp32_randbet, mapping=RowHammerUpSprayAttackMapping)
+else:
+    print(attack)
+    model_fp32_prepared_smoothing = torch.quantization.prepare_qat(model_fp32_smoothing, mapping=RowHammerSprayAttackMapping)
+    model_fp32_prepared_randbet = torch.quantization.prepare_qat(model_fp32_randbet, mapping=RowHammerSprayAttackMapping)
 # model_fp32_prepared = model_fp32
 
 model_out_path = "ablationv3.pth"
