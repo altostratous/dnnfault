@@ -1,4 +1,5 @@
 *.pth
+ablation/*.pkl
 ablation/*.pth
 data
 slurm-*.out

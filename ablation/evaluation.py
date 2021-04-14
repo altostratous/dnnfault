@@ -492,13 +492,13 @@ class Solver(object):
         ])
         train_set = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=train_transform)
         self.train_loader = torch.utils.data.DataLoader(dataset=train_set, batch_size=self.train_batch_size,
-                                                        sampler=range(self.train_batch_size),
-                                                        # shuffle=True
+                                                        # sampler=range(self.train_batch_size),
+                                                        shuffle=True
                                                         )
         test_set = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=test_transform)
         self.test_loader = torch.utils.data.DataLoader(dataset=test_set, batch_size=self.test_batch_size,
-                                                       sampler=range(self.test_batch_size),
-                                                       # shuffle=True
+                                                       # sampler=range(self.test_batch_size),
+                                                       shuffle=True
                                                        )
 
     def load_model(self):
