@@ -444,6 +444,7 @@ def main():
     parser.add_argument('--testBatchSize', default=128, type=int, help='testing batch size')
     parser.add_argument('--cuda', default=torch.cuda.is_available(), type=bool, help='whether cuda is in use')
     parser.add_argument('--attack', type=str, help='attack type', choices=('none', 'spray', 'upspray'))
+    parser.add_argument('--prefix', type=str, default='', help='prefix for output')
     args = parser.parse_args()
 
     solver = Solver(args)
@@ -478,7 +479,7 @@ class Solver(object):
         self.cuda = config.cuda
         self.train_loader = None
         self.test_loader = None
-        self.evaluation_file_name = config.attack + '.pkl'
+        self.evaluation_file_name = config.prefix + config.attack + '.pkl'
 
     def load_data(self):
         train_transform = transforms.Compose([

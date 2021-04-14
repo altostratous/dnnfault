@@ -10,8 +10,8 @@ attacks = (('none', 'None'),
            ('spray', 'Spray'),
            ('upspray', 'Up Spray'))
 
-step = 2
-resolution = 1000
+step = 1
+resolution = 500
 interval = (60, 75)
 
 for i, attack in enumerate(attacks):
@@ -32,6 +32,6 @@ for i, attack in enumerate(attacks):
         plt.legend()
         plt.gca().yaxis.set_major_formatter(PercentFormatter(1))
         plt.gca().xaxis.set_major_formatter(PercentFormatter(1))
-        plt.title(attack_title)
+        plt.title(attack_title + ' ({} samples)'.format(len(evaluation)))
 plt.tight_layout()
 plt.show()
