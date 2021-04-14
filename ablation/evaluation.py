@@ -607,7 +607,8 @@ class Solver(object):
                 total += target.size(0)
                 test_correct_smoothing += np.sum(prediction_smoothing[1].cpu().numpy() == target.cpu().numpy())
                 test_correct_randbet += np.sum(prediction_randbet[1].cpu().numpy() == target.cpu().numpy())
-
+                print('.', end='')
+            print()
         return (
             (test_loss_smoothing, test_correct_smoothing / total),
             (test_loss_randbet, test_correct_randbet / total),
