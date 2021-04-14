@@ -187,7 +187,7 @@ class BatchAblation(nn.Module):
 
 class Gaussian(nn.Module):
 
-    def __init__(self, sigma=0.1, q=1):
+    def __init__(self, sigma=1, q=1):
         super().__init__()
         self.sigma = sigma
         self.q = q
