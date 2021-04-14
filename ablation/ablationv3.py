@@ -187,7 +187,7 @@ class BatchAblation(nn.Module):
 
 class Gaussian(nn.Module):
 
-    def __init__(self, sigma=1, q=1):
+    def __init__(self, sigma=0.1, q=1):
         super().__init__()
         self.sigma = sigma
         self.q = q
@@ -301,6 +301,7 @@ model_fp32_prepared = torch.quantization.prepare_qat(model_fp32)
 # model_fp32_prepared = model_fp32
 
 model_out_path = "ablationv3.pth"
+model_out_path = "randbet.pth"
 if os.path.exists(model_out_path):
     if torch.cuda.is_available():
         state_dict = torch.load(model_out_path)
