@@ -443,7 +443,7 @@ def main():
     parser.add_argument('--trainBatchSize', default=128, type=int, help='training batch size')
     parser.add_argument('--testBatchSize', default=128, type=int, help='testing batch size')
     parser.add_argument('--cuda', default=torch.cuda.is_available(), type=bool, help='whether cuda is in use')
-    parser.add_argument('--attack', type=bool, help='attack type', choices=('none', 'spray', 'upspray'))
+    parser.add_argument('--attack', type=str, help='attack type', choices=('none', 'spray', 'upspray'))
     args = parser.parse_args()
 
     solver = Solver(args)
