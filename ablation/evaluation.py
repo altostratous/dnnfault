@@ -86,7 +86,7 @@ class RowHammerUpSprayAttack(InjectionMixin):
         bit_index = torch.randint(0, 8, quantized.shape, device=quantized.device)
         bit_magnitude = 2 ** bit_index
         flip_sign = torch.masked_fill(- (torch.floor(quantized / bit_magnitude) % 2 - 0.5) * 2, mask, 0)
-        flip_sign = torch.max(flip_sign, torch.zeros(flip_sign.shape))
+        flip_sign = torch.max(flip_sign, torch.zeros(flip_sign.shape, device=quantized.device))
         additive = flip_sign * bit_magnitude
         return (quantized + additive) - 128
 
