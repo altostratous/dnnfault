@@ -67,6 +67,7 @@ class RowHammerSprayAttack(InjectionMixin):
         bit_index = torch.randint(0, 8, quantized.shape)
         bit_magnitude = 2 ** bit_index
         flip_sign = torch.masked_fill(- (torch.floor(quantized / bit_magnitude) % 2 - 0.5) * 2, mask, 0)
+        flip_sign = torch.max(flip_sign, torch.zeros(flip_sign.shape))
         additive = flip_sign * bit_magnitude
         return (quantized + additive) - 128
 
@@ -300,7 +301,6 @@ model_fp32_prepared = torch.quantization.prepare_qat(model_fp32)
 # model_fp32_prepared = model_fp32
 
 model_out_path = "ablationv3.pth"
-model_out_path = "randbet.pth"
 if os.path.exists(model_out_path):
     if torch.cuda.is_available():
         state_dict = torch.load(model_out_path)
