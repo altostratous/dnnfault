@@ -184,6 +184,20 @@ class BatchAblation(nn.Module):
         return input * value_mask + mean * mean_mask
 
 
+class Gaussian(nn.Module):
+
+    def __init__(self, sigma=0.25, q=1):
+        super().__init__()
+        self.sigma = sigma
+        self.q = q
+
+    def forward(self, input: Tensor) -> Tensor:
+        if random.random() > self.q or not self.training:
+            return input
+        noise = torch.normal(0., float(torch.std(input) * self.sigma), input.shape, device=input.device)
+        return noise + input
+
+
 class AlexNet(nn.Module):
 
     def __init__(self, num_classes: int = 10) -> None:
@@ -193,33 +207,34 @@ class AlexNet(nn.Module):
             '0': nn.Conv2d(3, 64, kernel_size=11, stride=4, padding=2),
             '1': nn.ReLU(inplace=True),
             '2': nn.MaxPool2d(kernel_size=3, stride=2),
-            'ba_1': BatchAblation(),
+            'g_1': Gaussian(),
             '3': nn.Conv2d(64, 192, kernel_size=5, padding=2),
             '4': nn.ReLU(inplace=True),
             '5': nn.MaxPool2d(kernel_size=3, stride=2),
-            'ba_2': BatchAblation(),
+            'g_2': Gaussian(),
             '6': nn.Conv2d(192, 384, kernel_size=3, padding=1),
             '7': nn.ReLU(inplace=True),
-            'ba_3': BatchAblation(),
+            'g_3': Gaussian(),
             '8': nn.Conv2d(384, 256, kernel_size=3, padding=1),
             '9': nn.ReLU(inplace=True),
-            'ba_4': BatchAblation(),
+            'g_4': Gaussian(),
             '10': nn.Conv2d(256, 256, kernel_size=3, padding=1),
             '11': nn.ReLU(inplace=True),
             '12': nn.MaxPool2d(kernel_size=3, stride=2),
         }))
         self.avgpool = nn.AdaptiveAvgPool2d((6, 6))
         self.classifier = nn.Sequential(OrderedDict({
-            'ba_5': BatchAblation(),
-            '0': nn.Dropout(),
+            'g_5': Gaussian(),
+            # '0': nn.Dropout(p=0.8),
             '1': nn.Linear(256 * 6 * 6, 4096),
             '2': nn.ReLU(inplace=True),
-            'ba_6': BatchAblation(),
-            '3': nn.Dropout(),
+            # 'ba_6': BatchAblation(),
+            '3': nn.Dropout(p=0.8),
             '4': nn.Linear(4096, 4096),
             '5': nn.ReLU(inplace=True),
-            'ba_7': BatchAblation(),
-            '6': nn.Linear(4096, num_classes),
+            '6': nn.Dropout(p=0.8),
+            # 'ba_7': BatchAblation(),
+            '7': nn.Linear(4096, num_classes),
         }))
         self.dequant = torch.quantization.DeQuantStub()
 
