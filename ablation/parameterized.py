@@ -49,6 +49,10 @@ arg_names.append('weight_clip')
 args = parser.parse_args()
 
 
+os.makedirs('weights', exist_ok=True)
+os.makedirs('results', exist_ok=True)
+
+
 def serialize_params(args, exclude=()):
     return '-'.join('{}:{}'.format(a, getattr(args, a)) for a in arg_names if a not in exclude)
 
@@ -361,7 +365,7 @@ else:
 
 model_fp32_prepared = torch.quantization.prepare_qat(model_fp32, mapping=mapping)
 
-model_out_path = serialize_params(args, exclude=('e_mapping', )) + ".pth"
+model_out_path = 'weights/' + serialize_params(args, exclude=('e_mapping', )) + ".pth"
 if os.path.exists(model_out_path):
     if torch.cuda.is_available():
         state_dict = torch.load(model_out_path)
@@ -415,7 +419,7 @@ class Solver(object):
         self.cuda = config.cuda
         self.train_loader = None
         self.test_loader = None
-        self.evaluation_file_name = serialize_params(args) + '.pkl'
+        self.evaluation_file_name = 'results/' + serialize_params(args) + '.pkl'
 
     def log_accuracy(self, evaluation):
         print(evaluation)
