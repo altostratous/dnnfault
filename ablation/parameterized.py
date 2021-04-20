@@ -361,6 +361,12 @@ RowHammerSprayAttackMapping.update({
     nn.Linear: RowHammerSprayAttackLinear
 })
 
+RowHammerUpSprayAttackMapping = copy(get_qat_module_mappings())
+RowHammerUpSprayAttackMapping.update({
+    nn.Conv2d: RowHammerUpSprayAttackConv2D,
+    nn.Linear: RowHammerUpSprayAttackLinear
+})
+
 if args.train:
     mapping = eval(args.t_mapping)
 else:
