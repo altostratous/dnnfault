@@ -96,16 +96,15 @@ class InjectionMixin:
 class RandomBET(InjectionMixin):
     berr = args.berr
 
-    def manipulate_float(self, weight):
-        return torch.clamp(weight, -0.1, 0.1)
-
     def manipulate_quantized(self, signed_quantized):
-        quantized = signed_quantized + 128
-        mask = torch.rand(quantized.shape) > self.berr * torch.randint(0, 2, (1,)) * 8
-        bit_index = torch.randint(0, 8, quantized.shape)
-        bit_magnitude = 2 ** bit_index
-        flip_sign = torch.masked_fill(- (torch.floor(quantized / bit_magnitude) % 2 - 0.5) * 2, mask, 0)
-        additive = flip_sign * bit_magnitude
+        if random.choice([True, False]):
+            return signed_quantized
+        additive = torch.zeros(signed_quantized.shape, device=signed_quantized.device)
+        for bit_magnitude in (1, 2, 4, 8, 16, 32, 64, 127):
+            quantized = signed_quantized + 128
+            mask = torch.rand(quantized.shape, device=quantized.device) > self.berr
+            flip_sign = torch.masked_fill(- (torch.floor(quantized / bit_magnitude) % 2 - 0.5) * 2, mask, 0)
+            additive += flip_sign * bit_magnitude
         return (quantized + additive) - 128
 
 
@@ -113,13 +112,12 @@ class RowHammerSprayAttack(InjectionMixin):
     berr = args.berr
 
     def manipulate_quantized(self, signed_quantized):
-        quantized = signed_quantized + 128
-        mask = torch.rand(quantized.shape, device=quantized.device) > self.berr * 8
-        bit_index = torch.randint(0, 8, quantized.shape, device=quantized.device)
-        bit_magnitude = 2 ** bit_index
-        flip_sign = torch.masked_fill(- (torch.floor(quantized / bit_magnitude) % 2 - 0.5) * 2, mask, 0)
-        # flip_sign = torch.max(flip_sign, torch.zeros(flip_sign.shape))
-        additive = flip_sign * bit_magnitude
+        additive = torch.zeros(signed_quantized.shape, device=signed_quantized.device)
+        for bit_magnitude in (1, 2, 4, 8, 16, 32, 64, 127):
+            quantized = signed_quantized + 128
+            mask = torch.rand(quantized.shape, device=quantized.device) > self.berr
+            flip_sign = torch.masked_fill(- (torch.floor(quantized / bit_magnitude) % 2 - 0.5) * 2, mask, 0)
+            additive += flip_sign * bit_magnitude
         return (quantized + additive) - 128
 
 
@@ -127,19 +125,20 @@ class RowHammerUpSprayAttack(InjectionMixin):
     berr = args.berr
 
     def manipulate_quantized(self, signed_quantized):
-        quantized = signed_quantized + 128
-        mask = torch.rand(quantized.shape, device=quantized.device) > self.berr * 8
-        bit_index = torch.randint(0, 8, quantized.shape, device=quantized.device)
-        bit_magnitude = 2 ** bit_index
-        flip_sign = torch.masked_fill(- (torch.floor(quantized / bit_magnitude) % 2 - 0.5) * 2, mask, 0)
-        flip_sign = torch.max(flip_sign, torch.zeros(flip_sign.shape, device=quantized.device))
-        additive = flip_sign * bit_magnitude
+        additive = torch.zeros(signed_quantized.shape, device=signed_quantized.device)
+        for bit_magnitude in (1, 2, 4, 8, 16, 32, 64, 127):
+            quantized = signed_quantized + 128
+            mask = torch.rand(quantized.shape, device=quantized.device) > self.berr
+            flip_sign = torch.masked_fill(- (torch.floor(quantized / bit_magnitude) % 2 - 0.5) * 2, mask, 0)
+            flip_sign = torch.max(flip_sign, torch.zeros(flip_sign.shape, device=quantized.device))
+            additive += flip_sign * bit_magnitude
         return (quantized + additive) - 128
 
 
 class BlindRowHammerAttack(InjectionMixin):
 
     def manipulate_quantized(self, signed_quantized):
+        raise DeprecationWarning
         if self.k == 0:
             return signed_quantized
         quantized = signed_quantized + 128
@@ -268,8 +267,12 @@ class Gaussian(nn.Module):
     def forward(self, input: Tensor) -> Tensor:
         if random.random() > self.q or not self.training:
             return input
-        noise = torch.normal(0., float(torch.std(input) * self.sigma), input.shape, device=input.device)
-        return noise + input
+        mapped_sigma = float(torch.std(input) * self.sigma)
+        if mapped_sigma:
+            noise = torch.normal(0., mapped_sigma, input.shape, device=input.device)
+            return noise + input
+        else:
+            return input
 
 
 class AlexNet(nn.Module):
