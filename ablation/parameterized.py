@@ -386,16 +386,18 @@ else:
 model_fp32_prepared = torch.quantization.prepare_qat(model_fp32, mapping=mapping)
 
 model_out_path = 'weights/' + serialize_params(args, exclude=('e_mapping', )) + ".pth"
-if not os.path.exists(model_out_path):
-    model_out_path = 'weight_backup_3_gaussian/randbet.pth'
 
-if os.path.exists(model_out_path):
+load_path = model_out_path
+if not os.path.exists(model_out_path):
+    load_path = 'weight_backup_3_gaussian/randbet.pth'
+
+if os.path.exists(load_path):
     if torch.cuda.is_available():
-        state_dict = torch.load(model_out_path)
+        state_dict = torch.load(load_path)
     else:
-        state_dict = torch.load(model_out_path, map_location=torch.device('cpu'))
+        state_dict = torch.load(load_path, map_location=torch.device('cpu'))
     model_fp32_prepared.load_state_dict(state_dict, strict=False)
-    print("Checkpoint loaded from {}".format(model_out_path))
+    print("Checkpoint loaded from {}".format(load_path))
 
 
 import torch.optim as optim
