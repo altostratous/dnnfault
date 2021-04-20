@@ -19,6 +19,17 @@ from torch.quantization import get_qat_module_mappings
 arg_names = []
 
 
+def str2bool(v):
+    if isinstance(v, bool):
+       return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
+
+
 parser = argparse.ArgumentParser(description="cifar-10 with PyTorch")
 parser.add_argument('--lr', default=0.001, type=float, help='learning rate')
 arg_names.append('lr')
@@ -26,25 +37,25 @@ parser.add_argument('--epoch', default=300, type=int, help='number of epochs tp 
 arg_names.append('epoch')
 parser.add_argument('--trainBatchSize', default=128, type=int, help='training batch size')
 parser.add_argument('--testBatchSize', default=128, type=int, help='testing batch size')
-parser.add_argument('--cuda', default=torch.cuda.is_available(), type=bool, help='whether cuda is in use')
+parser.add_argument('--cuda', default=torch.cuda.is_available(), type=str2bool, help='whether cuda is in use')
 parser.add_argument('--prefix', type=str, default='', help='prefix for output')
 arg_names.append('prefix')
 parser.add_argument('--dropout_p', type=float, default=0.5, help='prefix for output')
 arg_names.append('dropout_p')
-parser.add_argument('--last_dropout', type=bool, default=True, help='whether inject last dropout')
+parser.add_argument('--last_dropout', type=str2bool, default=True, help='whether inject last dropout')
 arg_names.append('last_dropout')
-parser.add_argument('--first_dropout', type=bool, default=False, help='whether inject last dropout')
+parser.add_argument('--first_dropout', type=str2bool, default=False, help='whether inject last dropout')
 arg_names.append('first_dropout')
 parser.add_argument('--sigma', type=float, default=0.1, help='randomized for randomized smoothing')
 arg_names.append('sigma')
-parser.add_argument('--train', type=bool, default=True, help='whether to train')
+parser.add_argument('--train', type=str2bool, default=True, help='whether to train')
 parser.add_argument('--berr', type=float, default=0.01, help='whether to train')
 arg_names.append('berr')
 parser.add_argument('--t_mapping', type=str, default='None', help='whether to train')
 parser.add_argument('--e_mapping', type=str, default='None', help='whether to train')
 arg_names.append('t_mapping')
 arg_names.append('e_mapping')
-parser.add_argument('--weight_clip', type=bool, default=True, help='whether to train')
+parser.add_argument('--weight_clip', type=str2bool, default=True, help='whether to train')
 arg_names.append('weight_clip')
 args = parser.parse_args()
 
