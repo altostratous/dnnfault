@@ -369,6 +369,9 @@ else:
 model_fp32_prepared = torch.quantization.prepare_qat(model_fp32, mapping=mapping)
 
 model_out_path = 'weights/' + serialize_params(args, exclude=('e_mapping', )) + ".pth"
+if not os.path.exists(model_out_path):
+    model_out_path = 'weight_backup_3_gaussian/randbet.pth'
+
 if os.path.exists(model_out_path):
     if torch.cuda.is_available():
         state_dict = torch.load(model_out_path)
