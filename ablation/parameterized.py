@@ -383,6 +383,8 @@ if args.train:
 else:
     mapping = eval(args.e_mapping)
 
+print(mapping)
+
 model_fp32_prepared = torch.quantization.prepare_qat(model_fp32, mapping=mapping)
 
 model_out_path = 'weights/' + serialize_params(args, exclude=('e_mapping', )) + ".pth"
