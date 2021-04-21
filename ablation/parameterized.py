@@ -416,7 +416,7 @@ if os.path.exists(load_path):
         state_dict = torch.load(load_path)
     else:
         state_dict = torch.load(load_path, map_location=torch.device('cpu'))
-    model_fp32_prepared.load_state_dict(state_dict)
+    model_fp32_prepared.load_state_dict(state_dict, strict=not args.train)
     print("Checkpoint loaded from {}".format(load_path))
 
 
