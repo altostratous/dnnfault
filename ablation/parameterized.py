@@ -33,7 +33,7 @@ def str2bool(v):
 parser = argparse.ArgumentParser(description="cifar-10 with PyTorch")
 parser.add_argument('--lr', default=0.001, type=float, help='learning rate')
 arg_names.append('lr')
-parser.add_argument('--epoch', default=100, type=int, help='number of epochs tp train for')
+parser.add_argument('--epoch', default=300, type=int, help='number of epochs tp train for')
 arg_names.append('epoch')
 parser.add_argument('--trainBatchSize', default=128, type=int, help='training batch size')
 parser.add_argument('--testBatchSize', default=128, type=int, help='testing batch size')
