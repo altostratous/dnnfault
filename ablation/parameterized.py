@@ -57,15 +57,21 @@ arg_names.append('t_mapping')
 arg_names.append('e_mapping')
 parser.add_argument('--weight_clip', type=str2bool, default=True, help='whether to train')
 arg_names.append('weight_clip')
+parser.add_argument('--mc_dropout', type=str2bool, default=False, help='whether to train')
+arg_names.append('mc_dropout')
 args = parser.parse_args()
-
 
 os.makedirs('weights', exist_ok=True)
 os.makedirs('results', exist_ok=True)
 
 
-def serialize_params(args, exclude=()):
-    return '-'.join('{}:{}'.format(a, getattr(args, a)) for a in arg_names if a not in exclude)
+def serialize_params(args, exclude=(), exclude_defaults=None):
+    if exclude_defaults is None:
+        exclude_defaults = {}
+    return '-'.join('{}:{}'.format(a, getattr(args, a)) for a in arg_names if (
+            a not in exclude and
+            not (a in exclude_defaults and exclude_defaults[a] == getattr(args, a))
+    ))
 
 
 def deserialize_params(params):
@@ -286,6 +292,15 @@ class Gaussian(nn.Module):
             return input
 
 
+class MonteCarloDropout(nn.Dropout):
+
+    def eval(self):
+        if args.mc_dropout:
+            return super().train()
+        else:
+            return super().eval()
+
+
 class AlexNet(nn.Module):
 
     def __init__(self, num_classes: int = 10) -> None:
@@ -313,14 +328,14 @@ class AlexNet(nn.Module):
         self.avgpool = nn.AdaptiveAvgPool2d((6, 6))
         self.classifier = nn.Sequential(OrderedDict({
             'g_5': Gaussian(),
-            '0': nn.Dropout(p=args.dropout_p if args.first_dropout else 0),
+            '0': MonteCarloDropout(p=args.dropout_p if args.first_dropout else 0),
             '1': nn.Linear(256 * 6 * 6, 4096),
             '2': nn.ReLU(inplace=True),
             # 'ba_6': BatchAblation(),
-            '3': nn.Dropout(p=args.dropout_p),
+            '3': MonteCarloDropout(p=args.dropout_p),
             '4': nn.Linear(4096, 4096),
             '5': nn.ReLU(inplace=True),
-            '6': nn.Dropout(p=args.dropout_p if args.last_dropout else 0),
+            '6': MonteCarloDropout(p=args.dropout_p if args.last_dropout else 0),
             # 'ba_7': BatchAblation(),
             '7': nn.Linear(4096, num_classes),
         }))
@@ -387,7 +402,7 @@ print(mapping)
 
 model_fp32_prepared = torch.quantization.prepare_qat(model_fp32, mapping=mapping)
 
-model_out_path = 'weights/' + serialize_params(args, exclude=('e_mapping', )) + ".pth"
+model_out_path = 'weights/' + serialize_params(args, exclude=('e_mapping', 'mc_dropout')) + ".pth"
 
 load_path = model_out_path
 if not os.path.exists(model_out_path):
@@ -398,7 +413,7 @@ if os.path.exists(load_path):
         state_dict = torch.load(load_path)
     else:
         state_dict = torch.load(load_path, map_location=torch.device('cpu'))
-    model_fp32_prepared.load_state_dict(state_dict, strict=False)
+    model_fp32_prepared.load_state_dict(state_dict)
     print("Checkpoint loaded from {}".format(load_path))
 
 
@@ -446,7 +461,8 @@ class Solver(object):
         self.cuda = config.cuda
         self.train_loader = None
         self.test_loader = None
-        self.evaluation_file_name = 'results/' + serialize_params(args) + '.pkl'
+        self.evaluation_file_name = 'results/' + serialize_params(args,
+                                                                  exclude_defaults={'mc_dropout': False}) + '.pkl'
 
     def log_accuracy(self, evaluation):
         print(evaluation)
@@ -593,7 +609,8 @@ class Solver(object):
             if test_result[1] > accuracy:
                 accuracy = test_result[1]
                 print("===> BEST ACC. PERFORMANCE: %.3f%%" % (accuracy * 100))
-                self.save()
+                if args.train:
+                    self.save()
 
 
 if __name__ == '__main__':
