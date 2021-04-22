@@ -84,6 +84,8 @@ def deserialize_params(params):
 
 class InjectionMixin:
 
+    enabled = True
+
     def init_injection(self):
         self.k = 0
         self.fault_stride = 3
@@ -91,7 +93,8 @@ class InjectionMixin:
         self.grad_sum = torch.zeros(self.weight.shape)
 
     def weight_fake_quant_inject(self, fake_quant, weight):
-        weight = self.manipulate_float(weight)
+        if self.enabled:
+            weight = self.manipulate_float(weight)
         repeat = weight.flatten().shape[0] // fake_quant.scale.flatten().shape[0]
         scale = torch.repeat_interleave(fake_quant.scale, repeat).reshape(weight.shape)
         zero_point = torch.repeat_interleave(fake_quant.zero_point, repeat).reshape(weight.shape)
@@ -100,7 +103,8 @@ class InjectionMixin:
                 weight / scale + zero_point),
             fake_quant.quant_min,
             fake_quant.quant_max)
-        quantized = self.manipulate_quantized(quantized)
+        if self.enabled:
+            quantized = self.manipulate_quantized(quantized)
         return (quantized - zero_point) * scale
 
     def manipulate_float(self, weight):
@@ -114,8 +118,6 @@ class RandomBET(InjectionMixin):
     berr = args.berr
 
     def manipulate_quantized(self, signed_quantized):
-        if random.choice([True, False]):
-            return signed_quantized
         additive = torch.zeros(signed_quantized.shape, device=signed_quantized.device)
         for bit_magnitude in (1, 2, 4, 8, 16, 32, 64, 127):
             quantized = signed_quantized + 128
@@ -524,7 +526,15 @@ class Solver(object):
             self.optimizer.zero_grad()
             output = self.model(data)
             loss = self.criterion(output, target)
+            if args.t_mapping == 'RandomBETMapping':
+                loss = loss / 2
             loss.backward()
+            if args.t_mapping == 'RandomBETMapping':
+                InjectionMixin.enabled = False
+                output = self.model(data)
+                loss = self.criterion(output, target) / 2
+                loss.backward()
+                InjectionMixin.enabled = True
             self.optimizer.step()
             train_loss += loss.item()
             prediction = torch.max(output, 1)  # second param "1" represents the dimension to be reduced
