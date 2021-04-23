@@ -3,6 +3,7 @@ import os
 import pickle
 import random
 from argparse import Action, FileType
+from filelock import SoftFileLock
 from collections import OrderedDict
 from copy import copy
 from itertools import chain
@@ -468,17 +469,19 @@ class Solver(object):
         self.test_loader = None
         self.evaluation_file_name = 'results/' + serialize_params(args,
                                                                   exclude_defaults={'mc_dropout': False}) + '.pkl'
+        self.evaluation_file_lock = SoftFileLock(self.evaluation_file_name + '.lock')
 
     def log_accuracy(self, evaluation):
         print(evaluation)
-        try:
-            with open(self.evaluation_file_name, mode='rb') as f:
-                evaluations = pickle.load(f)
-        except (FileNotFoundError, pickle.UnpicklingError):
-            evaluations = []
-        evaluations.append(evaluation)
-        with open(self.evaluation_file_name, mode='wb') as f:
-            pickle.dump(evaluations, f)
+        with self.evaluation_file_lock:
+            try:
+                with open(self.evaluation_file_name, mode='rb') as f:
+                    evaluations = pickle.load(f)
+            except (FileNotFoundError, pickle.UnpicklingError):
+                evaluations = []
+            evaluations.append(evaluation)
+            with open(self.evaluation_file_name, mode='wb') as f:
+                pickle.dump(evaluations, f)
 
     def load_data(self):
         train_transform = transforms.Compose([
