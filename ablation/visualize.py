@@ -12,13 +12,14 @@ attacks = (('none', 'None'),
 
 step = 1
 resolution = 500
-interval = (60, 75)
+prefix = 'relaxed_'
+interval = (60, 80)
 
 for i, attack in enumerate(attacks):
     attack_key, attack_title = attack
     plt.subplot(len(attacks), 1, i + 1)
     for variant_key, variant_title in variants:
-        with open(attack_key + '.pkl', mode='rb') as f:
+        with open(prefix + attack_key + '.pkl', mode='rb') as f:
             evaluation = pickle.load(f)
         probability = []
         x = []
