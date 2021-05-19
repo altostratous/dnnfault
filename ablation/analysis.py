@@ -195,9 +195,10 @@ print(len(tabular))
 def plot_accuracy(title, variants, mutations=None, size=None):
 
     if mutations is None:
-        mutations = (({'e_mapping': 'None'}, 'Clean Accuracy'),
-                    ({'e_mapping': 'RowHammerSprayAttackMapping'}, 'Spray'),
-                    ({'e_mapping': 'RowHammerUpSprayAttackMapping'}, 'UpSpray'))
+        mutations = (({'e_mapping': 'None'}, 'Clean'),
+                    ({'e_mapping': 'RowHammerSprayAttackMapping'}, 'Bit Error Rate 1%'),
+                    # ({'e_mapping': 'RowHammerUpSprayAttackMapping'}, 'UpSpray')
+                     )
 
     if size is not None:
         plt.figure(figsize=size)
@@ -217,6 +218,7 @@ def plot_accuracy(title, variants, mutations=None, size=None):
                 label=variant, tick_label=x_tick_labels if i == len(variants) // 2 else None,)
     plt.legend()
     plt.title(title[1])
+    plt.ylabel('Accuracy')
     plt.savefig('../../adversehw/doc/' + title[0] + '.png')
     plt.show()
 
@@ -224,9 +226,9 @@ def plot_accuracy(title, variants, mutations=None, size=None):
 plot_accuracy(('bestofbests', 'Robustness of Compound Methods'),
               (
               ({}, 'Original AlexNet'),
-              ({'sigma': '0.25', 'last_dropout': 'True'}, 'Thinner'),
+              # ({'sigma': '0.25', 'last_dropout': 'True'}, 'Thinner'),
               ({'weight_clip': 'True'}, 'Weight Clip'),
-              ({'t_mapping': 'RandomBETMapping', 'weight_clip': 'True'}, 'RandBET'),
+              # ({'t_mapping': 'RandomBETMapping', 'weight_clip': 'True'}, 'RandBET'),
               ), size=(12, 4))
 
 plot_accuracy(('dropoutrobustness', 'MC Dropout Robustness'),
@@ -237,6 +239,9 @@ plot_accuracy(('dropoutrobustness', 'MC Dropout Robustness'),
               ({'dropout_p': '0.8', 'mc_dropout': 'True', 'last_dropout': 'True'}, 'q = 0.8, 3-layers'),
               ), size=(12, 4))
 
-plot_accuracy(('grsrobustness', 'Gaussian Random Smoothing Robustness'),
+plot_accuracy(('grsrobustness', 'Robustness'),
                (({}, 'Original AlexNet'),
-                ({'sigma': '0.25'}, 'Random Smoothing')))
+                ({'sigma': '0.25'}, 'Random Smoothing'),
+              ({'t_mapping': 'RandomBETMapping', 'weight_clip': 'True'}, 'RandBET'),
+                ({'weight_clip': 'True'}, 'Weight Clip'),
+                ))
